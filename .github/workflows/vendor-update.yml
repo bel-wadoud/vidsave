@@ -1,0 +1,51 @@
+name: Vendor update check
+
+# yt-dlp ships fixes for YouTube's changes multiple times a month; a vendored
+# copy that never gets refreshed will eventually just stop working. Checks
+# weekly for a newer yt-dlp release and, if there is one, opens a PR running
+# vendor/update.sh -- reviewed and merged like any other change, not
+# auto-merged, since a new yt-dlp release should get CI's fmt/clippy/test/
+# build pass (and ideally a real download smoke test) before landing.
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Monday ~06:17 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: run vendor/update.sh
+        run: ./vendor/update.sh
+
+      - name: check for changes
+        id: diff
+        run: |
+          if git diff --quiet -- vendor; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "new_version=$(cat vendor/YT_DLP_VERSION)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: peter-evans/create-pull-request@v7
+        if: steps.diff.outputs.changed == 'true'
+        with:
+          commit-message: "vendor: update yt-dlp to ${{ steps.diff.outputs.new_version }}"
+          title: "vendor: update yt-dlp to ${{ steps.diff.outputs.new_version }}"
+          body: |
+            Automated update via `vendor/update.sh`, triggered by a new
+            [yt-dlp release](https://github.com/yt-dlp/yt-dlp/releases/tag/${{ steps.diff.outputs.new_version }}).
+
+            Review the diff, let CI run, and consider a quick real-download
+            smoke test before merging -- yt-dlp releases occasionally need a
+            matching change on our side (e.g. new required arguments).
+          branch: vendor-update/yt-dlp
+          delete-branch: true
+          labels: dependencies
