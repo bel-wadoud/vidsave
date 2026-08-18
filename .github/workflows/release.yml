@@ -1,0 +1,116 @@
+name: Release
+
+# Fires on version tags (v1.0.0, v1.2.3, ...). Builds the app and the
+# installer natively for Linux and Windows, then publishes both plus the
+# standalone app binaries as assets on a GitHub Release matching the tag.
+#
+# Asset names are stable across releases (no version in the filename) so the
+# README's "latest download" links never need updating:
+#   ytb-dl-tui-install-linux-x86_64        ytb-dl-tui-install-windows-x86_64.exe
+#   ytb_dl_tui-linux-x86_64                ytb_dl_tui-windows-x86_64.exe
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x86_64
+            app_src: target/release/ytb_dl_tui
+            installer_src: installer/target/release/ytb-dl-tui-install
+            app_embed: ytb_dl_tui
+            app_asset: ytb_dl_tui-linux-x86_64
+            installer_asset: ytb-dl-tui-install-linux-x86_64
+          - os: windows-latest
+            name: windows-x86_64
+            app_src: target/release/ytb_dl_tui.exe
+            installer_src: installer/target/release/ytb-dl-tui-install.exe
+            app_embed: ytb_dl_tui.exe
+            app_asset: ytb_dl_tui-windows-x86_64.exe
+            installer_asset: ytb-dl-tui-install-windows-x86_64.exe
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            installer -> installer/target
+
+      - name: build ytb_dl_tui
+        run: cargo build --release
+
+      - name: embed app binary for installer build
+        shell: bash
+        run: |
+          mkdir -p installer/embed
+          cp "${{ matrix.app_src }}" "installer/embed/${{ matrix.app_embed }}"
+
+      - name: build installer
+        working-directory: installer
+        run: cargo build --release
+
+      - name: stage release assets
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp "${{ matrix.app_src }}" "dist/${{ matrix.app_asset }}"
+          cp "${{ matrix.installer_src }}" "dist/${{ matrix.installer_asset }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.name }}
+          path: dist/*
+
+  publish:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+
+      - name: extract changelog section for this tag
+        id: changelog
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          notes="$(awk -v ver="## [$version]" '
+            $0 ~ "^## \\[" && found { exit }
+            $0 ~ "^## \\[.*'"$version"'.*\\]" { found=1; next }
+            found { print }
+          ' CHANGELOG.md)"
+          {
+            echo "notes<<EOF"
+            echo "$notes"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: ytb-dl-tui ${{ github.ref_name }}
+          body: |
+            ${{ steps.changelog.outputs.notes }}
+
+            Full changelog: [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
+          files: dist/*
+          fail_on_unmatched_files: true

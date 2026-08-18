@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: fmt / clippy / test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            installer -> installer/target
+
+      # ytb_dl_tui
+      - name: fmt check (ytb_dl_tui)
+        run: cargo fmt --check
+
+      - name: clippy (ytb_dl_tui)
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: test (ytb_dl_tui)
+        run: cargo test
+
+      - name: build release (ytb_dl_tui)
+        run: cargo build --release
+
+      # installer/build.rs refuses to compile without a matching app binary
+      # already embedded, so build the app above first -- see build-installer.sh.
+      - name: embed app binary for installer build
+        shell: bash
+        run: |
+          mkdir -p installer/embed
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cp target/release/ytb_dl_tui.exe installer/embed/ytb_dl_tui.exe
+          else
+            cp target/release/ytb_dl_tui installer/embed/ytb_dl_tui
+          fi
+
+      # ytb-dl-tui-install
+      - name: fmt check (installer)
+        working-directory: installer
+        run: cargo fmt --check
+
+      - name: clippy (installer)
+        working-directory: installer
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: test (installer)
+        working-directory: installer
+        run: cargo test
+
+      - name: build release (installer)
+        working-directory: installer
+        run: cargo build --release
