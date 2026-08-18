@@ -1,10 +1,14 @@
-//! Everything that talks to the external `yt-dlp` (and, transitively,
-//! `ffmpeg`) binaries: presence checks, playlist/video metadata resolution,
-//! download argument construction, and progress-line parsing.
+//! Everything that talks to yt-dlp (and, transitively, `ffmpeg`): presence
+//! checks, playlist/video metadata resolution, download argument
+//! construction, and progress-line parsing.
 //!
 //! Reimplementing YouTube extraction natively would mean re-solving cipher
 //! and throttling changes YouTube ships regularly; yt-dlp already does this
-//! well and is updated constantly, so we shell out to it instead.
+//! well and is updated constantly, so we run it instead -- but rather than
+//! depending on a separately-installed `yt-dlp` binary, we ship our own
+//! pinned copy of its Python source (see `../vendor/`) plus a bundled
+//! Python interpreter, and run `python -m yt_dlp` ourselves. See `YtDlp`
+//! below and the installer's `python_runtime.rs` / `main.rs`.
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -47,9 +51,31 @@ impl JsRuntime {
     }
 }
 
+/// Our bundled `yt-dlp`: a specific pinned Python interpreter paired with
+/// our vendored copy of yt-dlp's source (not a separately-installed
+/// `yt-dlp` binary -- see the module docs above). Both pieces are installed
+/// together, so unlike `ffmpeg`/the JS runtime this deliberately does *not*
+/// fall back to searching `PATH`: a random system Python has no guarantee
+/// of matching the version this was built and tested against.
+#[derive(Debug, Clone)]
+pub struct YtDlp {
+    pub python_path: PathBuf,
+    pub src_dir: PathBuf,
+}
+
+impl YtDlp {
+    /// A `python -m yt_dlp` command, ready for args to be appended.
+    pub fn command(&self) -> Command {
+        let mut cmd = Command::new(&self.python_path);
+        cmd.env("PYTHONPATH", &self.src_dir);
+        cmd.arg("-m").arg("yt_dlp");
+        cmd
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct BinaryStatus {
-    pub ytdlp_path: Option<PathBuf>,
+    pub ytdlp: Option<YtDlp>,
     pub ytdlp_version: Option<String>,
     pub ffmpeg_path: Option<PathBuf>,
     pub js_runtime: Option<JsRuntime>,
@@ -57,14 +83,55 @@ pub struct BinaryStatus {
 
 impl BinaryStatus {
     pub fn ready(&self) -> bool {
-        self.ytdlp_path.is_some()
+        self.ytdlp.is_some()
     }
 }
 
-/// Looks for `name` (e.g. `"yt-dlp"`, `"ffmpeg"`) on `PATH` first, then falls
+/// Where the installer places the bundled interpreter and vendored source,
+/// relative to our own executable -- keep in sync with `runtime_dir` /
+/// `ytdlp_src_dir` in the installer's `src/main.rs`. Overridable via env
+/// vars for non-installer setups (e.g. the Docker image, which uses the
+/// system `python3` and a source copy laid out differently -- see
+/// `Dockerfile`).
+fn resolve_ytdlp() -> Option<YtDlp> {
+    let python_path = std::env::var_os("YTB_DL_TUI_PYTHON")
+        .map(PathBuf::from)
+        .or_else(bundled_python_path)?;
+    let src_dir = std::env::var_os("YTB_DL_TUI_YTDLP_SRC")
+        .map(PathBuf::from)
+        .or_else(bundled_ytdlp_src_dir)?;
+
+    (python_path.is_file() && src_dir.is_dir()).then_some(YtDlp {
+        python_path,
+        src_dir,
+    })
+}
+
+fn exe_dir() -> Option<PathBuf> {
+    std::env::current_exe()
+        .ok()?
+        .parent()
+        .map(Path::to_path_buf)
+}
+
+fn bundled_python_path() -> Option<PathBuf> {
+    let runtime_dir = exe_dir()?.join("python-runtime");
+    Some(if cfg!(windows) {
+        runtime_dir.join("python.exe")
+    } else {
+        runtime_dir.join("bin").join("python3")
+    })
+}
+
+fn bundled_ytdlp_src_dir() -> Option<PathBuf> {
+    Some(exe_dir()?.join("yt_dlp_src"))
+}
+
+/// Looks for `name` (e.g. `"ffmpeg"`, `"deno"`) on `PATH` first, then falls
 /// back to a file of that name sitting next to our own executable. This lets
 /// the whole toolchain ship as one folder -- app binary plus the standalone
-/// yt-dlp/ffmpeg builds -- with no PATH setup or installation step at all.
+/// ffmpeg/JS-runtime builds -- with no PATH setup or installation step at
+/// all.
 fn resolve_binary(name: &str) -> Option<PathBuf> {
     if let Ok(path) = which::which(name) {
         return Some(path);
@@ -95,17 +162,17 @@ fn resolve_js_runtime() -> Option<JsRuntime> {
     None
 }
 
-/// Probe for `yt-dlp`, `ffmpeg`, and a JS runtime, checking `PATH` and then
-/// the directory the app itself lives in. Missing `ffmpeg`/JS runtime are
-/// non-fatal (respectively: merging/embedding, and some videos failing to
-/// extract) but missing `yt-dlp` is fatal.
+/// Probe for our bundled yt-dlp, `ffmpeg`, and a JS runtime. Missing
+/// `ffmpeg`/JS runtime are non-fatal (respectively: merging/embedding, and
+/// some videos failing to extract) but missing yt-dlp is fatal.
 pub async fn check_binaries() -> BinaryStatus {
-    let ytdlp_path = resolve_binary("yt-dlp");
+    let ytdlp = resolve_ytdlp();
     let ffmpeg_path = resolve_binary("ffmpeg");
     let js_runtime = resolve_js_runtime();
 
-    let ytdlp_version = match &ytdlp_path {
-        Some(path) => Command::new(path)
+    let ytdlp_version = match &ytdlp {
+        Some(ytdlp) => ytdlp
+            .command()
             .arg("--version")
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -116,11 +183,11 @@ pub async fn check_binaries() -> BinaryStatus {
             .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()),
         None => None,
     };
-    // If we found a path but couldn't actually run it, treat yt-dlp as absent.
-    let ytdlp_path = ytdlp_path.filter(|_| ytdlp_version.is_some());
+    // If we found it but couldn't actually run it, treat yt-dlp as absent.
+    let ytdlp = ytdlp.filter(|_| ytdlp_version.is_some());
 
     BinaryStatus {
-        ytdlp_path,
+        ytdlp,
         ytdlp_version,
         ffmpeg_path,
         js_runtime,
@@ -132,10 +199,10 @@ pub async fn check_binaries() -> BinaryStatus {
 pub async fn fetch_playlist(
     url: &str,
     settings: &Settings,
-    ytdlp_path: &Path,
+    ytdlp: &YtDlp,
     js_runtime: Option<&JsRuntime>,
 ) -> Result<PlaylistInfo> {
-    let mut cmd = Command::new(ytdlp_path);
+    let mut cmd = ytdlp.command();
     cmd.arg("--flat-playlist")
         .arg("--dump-single-json")
         .arg("--no-warnings")
@@ -156,7 +223,7 @@ pub async fn fetch_playlist(
     let output = cmd
         .output()
         .await
-        .context("failed to launch yt-dlp (is it installed and on PATH?)")?;
+        .context("failed to launch yt-dlp (bundled Python runtime missing or broken?)")?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

@@ -9,13 +9,12 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::Command;
 use tokio::sync::{Semaphore, mpsc};
 use tokio_util::sync::CancellationToken;
 
 use crate::config::Settings;
 use crate::models::{DownloadProgress, Video};
-use crate::ytdlp::{JsRuntime, ProgressLine, build_download_args, parse_progress_line};
+use crate::ytdlp::{JsRuntime, ProgressLine, YtDlp, build_download_args, parse_progress_line};
 
 /// Events emitted for a single queued video, identified by its index in the
 /// original video list.
@@ -37,7 +36,7 @@ pub enum DownloadEvent {
 /// user has installed anything system-wide.
 #[derive(Debug, Clone)]
 pub struct BinaryPaths {
-    pub ytdlp: PathBuf,
+    pub ytdlp: YtDlp,
     pub ffmpeg: Option<PathBuf>,
     pub js_runtime: Option<JsRuntime>,
 }
@@ -116,7 +115,7 @@ async fn run_one(
         binaries.ffmpeg.as_deref(),
         binaries.js_runtime.as_ref(),
     );
-    let mut cmd = Command::new(&binaries.ytdlp);
+    let mut cmd = binaries.ytdlp.command();
     cmd.args(&args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())

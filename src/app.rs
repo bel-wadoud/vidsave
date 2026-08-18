@@ -132,10 +132,10 @@ impl App {
     pub fn begin_fetch(&mut self, url: String) {
         // Guards the CLI `<url>` fast path too (it skips the URL screen's
         // own readiness check), so we never spawn fetch_playlist without a
-        // resolved yt-dlp binary.
-        let Some(ytdlp_path) = self.binary_status.ytdlp_path.clone() else {
+        // resolved yt-dlp.
+        let Some(ytdlp) = self.binary_status.ytdlp.clone() else {
             self.set_status(
-                "yt-dlp was not found on PATH -- install it before fetching",
+                "yt-dlp runtime not found -- reinstall the app (see README)",
                 MessageKind::Error,
             );
             return;
@@ -148,8 +148,7 @@ impl App {
         self.screen = Screen::Fetching;
         tokio::spawn(async move {
             let result =
-                crate::ytdlp::fetch_playlist(&url, &settings, &ytdlp_path, js_runtime.as_ref())
-                    .await;
+                crate::ytdlp::fetch_playlist(&url, &settings, &ytdlp, js_runtime.as_ref()).await;
             let _ = tx.send(result);
         });
     }
@@ -229,9 +228,9 @@ impl App {
     // ---------------------------------------------------------------
 
     pub fn start_downloads(&mut self) {
-        let Some(ytdlp_path) = self.binary_status.ytdlp_path.clone() else {
+        let Some(ytdlp) = self.binary_status.ytdlp.clone() else {
             self.set_status(
-                "yt-dlp was not found on PATH -- install it before downloading",
+                "yt-dlp runtime not found -- reinstall the app (see README)",
                 MessageKind::Error,
             );
             return;
@@ -287,7 +286,7 @@ impl App {
         self.download_started_at = Some(Instant::now());
         self.batch_done = false;
         let binaries = crate::downloader::BinaryPaths {
-            ytdlp: ytdlp_path,
+            ytdlp,
             ffmpeg: self.binary_status.ffmpeg_path.clone(),
             js_runtime: self.binary_status.js_runtime.clone(),
         };

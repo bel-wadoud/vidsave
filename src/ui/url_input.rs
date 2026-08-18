@@ -30,17 +30,14 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
         chunks[1].y + 1,
     ));
 
-    let ytdlp_line = match (
-        &app.binary_status.ytdlp_version,
-        &app.binary_status.ytdlp_path,
-    ) {
-        (Some(v), Some(path)) => Line::from(vec![
+    let ytdlp_line = match (&app.binary_status.ytdlp_version, &app.binary_status.ytdlp) {
+        (Some(v), Some(ytdlp)) => Line::from(vec![
             Span::raw("yt-dlp: "),
             Span::styled(v.clone(), Style::default().fg(Color::Green)),
-            Span::raw(format!("  ({})", path.display())),
+            Span::raw(format!("  ({})", ytdlp.python_path.display())),
         ]),
         _ => Line::from(Span::styled(
-            "yt-dlp: NOT FOUND on PATH or next to this program",
+            "yt-dlp: NOT FOUND -- bundled Python runtime is missing or broken",
             Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
         )),
     };
@@ -82,7 +79,7 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
     if !app.binary_status.ready() {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
-            "Get yt-dlp (no Python needed) and place it on PATH or next to this program -- see README.md",
+            "Reinstall via the installer, or see README.md for manual setup",
             Style::default().fg(Color::Red),
         )));
     }

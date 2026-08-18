@@ -1,6 +1,6 @@
 [package]
 name = "ytb_dl_tui"
-version = "1.0.0"
+version = "2.0.0"
 edition = "2024"
 description = "Terminal UI for downloading YouTube playlists and videos via yt-dlp"
 license-file = "LICENSE"
