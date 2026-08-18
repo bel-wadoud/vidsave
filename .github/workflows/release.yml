@@ -1,13 +1,15 @@
 name: Release
 
 # Fires on version tags (v1.0.0, v1.2.3, ...). Builds the app and the
-# installer natively for Linux and Windows, then publishes both plus the
-# standalone app binaries as assets on a GitHub Release matching the tag.
+# installer natively for Linux and Windows, then publishes the installer plus
+# a portable bundle (app + bundled Python runtime + vendored yt-dlp, no
+# installer/PATH changes -- ffmpeg/deno are still your own responsibility, or
+# rely on PATH) as assets on a GitHub Release matching the tag.
 #
 # Asset names are stable across releases (no version in the filename) so the
 # README's "latest download" links never need updating:
-#   ytb-dl-tui-install-linux-x86_64        ytb-dl-tui-install-windows-x86_64.exe
-#   ytb_dl_tui-linux-x86_64                ytb_dl_tui-windows-x86_64.exe
+#   ytb-dl-tui-install-linux-x86_64          ytb-dl-tui-install-windows-x86_64.exe
+#   ytb-dl-tui-portable-linux-x86_64.zip     ytb-dl-tui-portable-windows-x86_64.zip
 
 on:
   push:
@@ -20,6 +22,7 @@ jobs:
   build:
     name: build (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -29,15 +32,15 @@ jobs:
             app_src: target/release/ytb_dl_tui
             installer_src: installer/target/release/ytb-dl-tui-install
             app_embed: ytb_dl_tui
-            app_asset: ytb_dl_tui-linux-x86_64
             installer_asset: ytb-dl-tui-install-linux-x86_64
+            portable_asset: ytb-dl-tui-portable-linux-x86_64.zip
           - os: windows-latest
             name: windows-x86_64
             app_src: target/release/ytb_dl_tui.exe
             installer_src: installer/target/release/ytb-dl-tui-install.exe
             app_embed: ytb_dl_tui.exe
-            app_asset: ytb_dl_tui-windows-x86_64.exe
             installer_asset: ytb-dl-tui-install-windows-x86_64.exe
+            portable_asset: ytb-dl-tui-portable-windows-x86_64.zip
     steps:
       - uses: actions/checkout@v4
 
@@ -62,12 +65,38 @@ jobs:
         working-directory: installer
         run: cargo build --release
 
-      - name: stage release assets
+      - name: stage installer release asset
         shell: bash
         run: |
           mkdir -p dist
-          cp "${{ matrix.app_src }}" "dist/${{ matrix.app_asset }}"
           cp "${{ matrix.installer_src }}" "dist/${{ matrix.installer_asset }}"
+
+      # Runs the installer we just built into a scratch, redirected install
+      # location (rather than hand-duplicating python_runtime.rs's download
+      # URLs here) and zips up exactly what it produces -- app binary,
+      # bundled Python runtime, vendored yt-dlp source, ffmpeg, deno -- as a
+      # single "unzip anywhere, run the binary directly" bundle.
+      - name: build portable bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          scratch="$RUNNER_TEMP/portable_home"
+          rm -rf "$scratch"
+          mkdir -p "$scratch"
+          # < /dev/null: the Windows build waits for an Enter press before
+          # exiting (so double-clicking it doesn't instantly close the
+          # console) -- closed stdin makes that read hit EOF immediately
+          # instead of risking a hang in this non-interactive step.
+          if [[ "${{ matrix.os }}" == windows-latest ]]; then
+            LOCALAPPDATA="$scratch" "${{ matrix.installer_src }}" < /dev/null
+            bundle_dir="$scratch/Programs/ytb-dl-tui"
+          else
+            HOME="$scratch" "${{ matrix.installer_src }}" < /dev/null
+            bundle_dir="$scratch/.local/share/ytb-dl-tui"
+          fi
+          dist_zip="$(pwd)/dist/${{ matrix.portable_asset }}"
+          py=python3; command -v python3 >/dev/null || py=python
+          (cd "$bundle_dir" && "$py" -m zipfile -c "$dist_zip" *)
 
       - uses: actions/upload-artifact@v4
         with:
