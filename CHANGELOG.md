@@ -5,6 +5,44 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-08-18
+
+### Changed
+
+- **Breaking:** no longer depends on a separately-installed `yt-dlp` binary.
+  The app now bundles a pinned Python runtime and runs our own vendored copy
+  of yt-dlp's source (see `vendor/`) instead of shelling out to a `yt-dlp`
+  executable found on `PATH` or next to the app. If you built a manual
+  "portable folder" per the old README by placing a `yt-dlp` binary next to
+  `ytb_dl_tui` yourself, that no longer works -- use the installer or the new
+  portable bundle release asset instead, both of which set this up
+  automatically. `ffmpeg`/the JS runtime are unaffected: still resolved from
+  `PATH` or the app's own folder.
+- The installer now also fetches a portable Python interpreter and installs
+  our vendored yt-dlp source in place of downloading yt-dlp's own release
+  binary.
+- The Docker image runs yt-dlp via the image's system `python3` and a copy of
+  the vendored source, instead of downloading yt-dlp's release binary.
+- Advanced/non-installer setups (e.g. custom Docker-like environments) can
+  point at a different interpreter or yt-dlp source via the
+  `YTB_DL_TUI_PYTHON` / `YTB_DL_TUI_YTDLP_SRC` environment variables.
+
+### Fixed
+
+- The installer (and the Docker image) now also install `ffprobe` alongside
+  `ffmpeg`. yt-dlp looks for `ffprobe` in the same directory as whatever
+  `--ffmpeg-location` points at, so without it, thumbnail/metadata embedding
+  silently failed for anyone relying on the auto-installed ffmpeg rather
+  than a system copy that happened to already have both.
+
+### Added
+
+- `ytb-dl-tui-portable-{linux,windows}-x86_64.zip` release asset: the app
+  plus its bundled Python runtime, vendored yt-dlp, ffmpeg, and deno, ready
+  to run from an unzipped folder with no installer and no `PATH` changes.
+- `vendor/update.sh` to refresh the vendored yt-dlp source to the latest
+  upstream release.
+
 ## [1.0.0] - 2026-08-18
 
 Initial release.
@@ -38,4 +76,5 @@ Initial release.
   `PATH` -- no admin/root required.
 - Docker image bundling the app with all of its runtime dependencies.
 
+[2.0.0]: https://github.com/bel-wadoud/ytb-dl-tui/releases/tag/v2.0.0
 [1.0.0]: https://github.com/bel-wadoud/ytb-dl-tui/releases/tag/v1.0.0
