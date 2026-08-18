@@ -1,0 +1,29 @@
+[package]
+name = "ytb-dl-tui-install"
+version = "1.0.0"
+edition = "2024"
+description = "Self-contained installer for ytb_dl_tui, yt-dlp, ffmpeg, and deno"
+license-file = "../LICENSE"
+repository = "https://github.com/bel-wadoud/ytb-dl-tui"
+
+[[bin]]
+name = "ytb-dl-tui-install"
+path = "src/main.rs"
+
+[profile.release]
+panic = "abort"
+strip = true
+
+[dependencies]
+anyhow = "1.0.104"
+ureq = { version = "3.3.0", default-features = false, features = ["rustls"] }
+which = "8.0.5"
+zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
+
+[target."cfg(unix)".dependencies]
+lzma-rs = "0.3.0"
+tar = "0.4.46"
+
+[target."cfg(windows)".dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation"] }
+winreg = "0.56.0"
