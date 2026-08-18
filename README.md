@@ -20,10 +20,11 @@ run:
 ytb_dl_tui
 ```
 
-Prefer a plain binary with no installer? [Windows](https://github.com/bel-wadoud/ytb-dl-tui/releases/latest/download/ytb_dl_tui-windows-x86_64.exe) /
-[Linux](https://github.com/bel-wadoud/ytb-dl-tui/releases/latest/download/ytb_dl_tui-linux-x86_64)
--- you'll need `yt-dlp`, `ffmpeg`, and `deno` on `PATH` or next to it
-yourself. A [Docker image](#docker) is also available.
+Prefer no installer? Grab the portable bundle instead -- unzip it anywhere
+and run the app binary inside directly, nothing added to `PATH`:
+[Windows](https://github.com/bel-wadoud/ytb-dl-tui/releases/latest/download/ytb-dl-tui-portable-windows-x86_64.zip) /
+[Linux](https://github.com/bel-wadoud/ytb-dl-tui/releases/latest/download/ytb-dl-tui-portable-linux-x86_64.zip).
+A [Docker image](#docker) is also available.
 
 ## Usage
 
