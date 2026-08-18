@@ -1,0 +1,7 @@
+# Build artifacts (workspace root and the standalone installer crate)
+/target
+/installer/target
+
+# Local editor/session state -- machine-specific, not shared
+/.claude/settings.local.json
+/.claude/scheduled_tasks.lock
