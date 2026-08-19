@@ -24,50 +24,44 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: install Linux GUI build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev
+
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: |
-            . -> target
-            installer -> installer/target
+          workspaces: . -> target
 
-      # ytb_dl_tui
-      - name: fmt check (ytb_dl_tui)
+      # Pure syntax -- safe before installer/embed/ exists (its build.rs
+      # would otherwise refuse to run clippy/test/build below).
+      - name: fmt check (workspace)
         run: cargo fmt --check
 
-      - name: clippy (ytb_dl_tui)
-        run: cargo clippy --all-targets -- -D warnings
+      # installer/build.rs refuses to compile without matching TUI + GUI
+      # binaries already embedded, so build both first -- see
+      # build-installer.sh, which does the same thing for local builds.
+      - name: build ytb_dl_tui + ytb_dl_tui_gui (release)
+        run: cargo build --release -p ytb_dl_tui -p ytb-dl-tui-gui
 
-      - name: test (ytb_dl_tui)
-        run: cargo test
-
-      - name: build release (ytb_dl_tui)
-        run: cargo build --release
-
-      # installer/build.rs refuses to compile without a matching app binary
-      # already embedded, so build the app above first -- see build-installer.sh.
-      - name: embed app binary for installer build
+      - name: embed app binaries for installer build
         shell: bash
         run: |
           mkdir -p installer/embed
           if [ "$RUNNER_OS" = "Windows" ]; then
             cp target/release/ytb_dl_tui.exe installer/embed/ytb_dl_tui.exe
+            cp target/release/ytb_dl_tui_gui.exe installer/embed/ytb_dl_tui_gui.exe
           else
             cp target/release/ytb_dl_tui installer/embed/ytb_dl_tui
+            cp target/release/ytb_dl_tui_gui installer/embed/ytb_dl_tui_gui
           fi
 
-      # ytb-dl-tui-install
-      - name: fmt check (installer)
-        working-directory: installer
-        run: cargo fmt --check
+      - name: clippy (workspace)
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: clippy (installer)
-        working-directory: installer
-        run: cargo clippy --all-targets -- -D warnings
+      - name: test (workspace)
+        run: cargo test --workspace
 
-      - name: test (installer)
-        working-directory: installer
-        run: cargo test
-
-      - name: build release (installer)
-        working-directory: installer
-        run: cargo build --release
+      - name: build installer (release)
+        run: cargo build --release -p ytb-dl-tui-install

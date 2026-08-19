@@ -1,6 +1,5 @@
-# Build artifacts (workspace root and the standalone installer crate)
+# Build artifacts (one shared target dir for the whole Cargo workspace)
 /target
-/installer/target
 
 # Local editor/session state -- machine-specific, not shared
 /.claude/settings.local.json

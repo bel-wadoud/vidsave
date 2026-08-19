@@ -1,10 +1,11 @@
 name: Release
 
-# Fires on version tags (v1.0.0, v1.2.3, ...). Builds the app and the
-# installer natively for Linux and Windows, then publishes the installer plus
-# a portable bundle (app + bundled Python runtime + vendored yt-dlp, no
-# installer/PATH changes -- ffmpeg/deno are still your own responsibility, or
-# rely on PATH) as assets on a GitHub Release matching the tag.
+# Fires on version tags (v1.0.0, v1.2.3, ...). Builds the TUI, the GUI, and
+# the installer wizard natively for Linux and Windows, then publishes the
+# installer plus a portable bundle (both apps + bundled Python runtime +
+# vendored yt-dlp, no installer/PATH changes -- ffmpeg/deno are still your
+# own responsibility, or rely on PATH) as assets on a GitHub Release
+# matching the tag.
 #
 # Asset names are stable across releases (no version in the filename) so the
 # README's "latest download" links never need updating:
@@ -29,16 +30,12 @@ jobs:
         include:
           - os: ubuntu-latest
             name: linux-x86_64
-            app_src: target/release/ytb_dl_tui
-            installer_src: installer/target/release/ytb-dl-tui-install
-            app_embed: ytb_dl_tui
+            exe_suffix: ""
             installer_asset: ytb-dl-tui-install-linux-x86_64
             portable_asset: ytb-dl-tui-portable-linux-x86_64.zip
           - os: windows-latest
             name: windows-x86_64
-            app_src: target/release/ytb_dl_tui.exe
-            installer_src: installer/target/release/ytb-dl-tui-install.exe
-            app_embed: ytb_dl_tui.exe
+            exe_suffix: ".exe"
             installer_asset: ytb-dl-tui-install-windows-x86_64.exe
             portable_asset: ytb-dl-tui-portable-windows-x86_64.zip
     steps:
@@ -46,30 +43,34 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - name: install Linux GUI build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev
+
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: |
-            . -> target
-            installer -> installer/target
+          workspaces: . -> target
 
-      - name: build ytb_dl_tui
-        run: cargo build --release
+      - name: build ytb_dl_tui + ytb_dl_tui_gui
+        run: cargo build --release -p ytb_dl_tui -p ytb-dl-tui-gui
 
-      - name: embed app binary for installer build
+      - name: embed app binaries for installer build
         shell: bash
         run: |
           mkdir -p installer/embed
-          cp "${{ matrix.app_src }}" "installer/embed/${{ matrix.app_embed }}"
+          cp "target/release/ytb_dl_tui${{ matrix.exe_suffix }}" "installer/embed/ytb_dl_tui${{ matrix.exe_suffix }}"
+          cp "target/release/ytb_dl_tui_gui${{ matrix.exe_suffix }}" "installer/embed/ytb_dl_tui_gui${{ matrix.exe_suffix }}"
 
       - name: build installer
-        working-directory: installer
-        run: cargo build --release
+        run: cargo build --release -p ytb-dl-tui-install
 
       - name: stage installer release asset
         shell: bash
         run: |
           mkdir -p dist
-          cp "${{ matrix.installer_src }}" "dist/${{ matrix.installer_asset }}"
+          cp "target/release/ytb-dl-tui-install${{ matrix.exe_suffix }}" "dist/${{ matrix.installer_asset }}"
 
       # Runs the installer we just built into a scratch, redirected install
       # location (rather than hand-duplicating python_runtime.rs's download
@@ -83,15 +84,16 @@ jobs:
           scratch="$RUNNER_TEMP/portable_home"
           rm -rf "$scratch"
           mkdir -p "$scratch"
-          # < /dev/null: the Windows build waits for an Enter press before
-          # exiting (so double-clicking it doesn't instantly close the
-          # console) -- closed stdin makes that read hit EOF immediately
-          # instead of risking a hang in this non-interactive step.
+          installer="target/release/ytb-dl-tui-install${{ matrix.exe_suffix }}"
+          # --silent: a real setup wizard window needs someone there to
+          # click through it, which nothing is in this step -- runs the
+          # exact same install non-interactively instead. < /dev/null out of
+          # caution even so, since it's still a subprocess in a CI step.
           if [[ "${{ matrix.os }}" == windows-latest ]]; then
-            LOCALAPPDATA="$scratch" "${{ matrix.installer_src }}" < /dev/null
+            LOCALAPPDATA="$scratch" "$installer" --silent < /dev/null
             bundle_dir="$scratch/Programs/ytb-dl-tui"
           else
-            HOME="$scratch" "${{ matrix.installer_src }}" < /dev/null
+            HOME="$scratch" "$installer" --silent < /dev/null
             bundle_dir="$scratch/.local/share/ytb-dl-tui"
           fi
           dist_zip="$(pwd)/dist/${{ matrix.portable_asset }}"
