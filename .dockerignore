@@ -1,5 +1,4 @@
 target/
-installer/
 .git/
 .claude/
 *.md

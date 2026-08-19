@@ -29,13 +29,17 @@ RUN $CURL -o deno.zip \
     && rm deno.zip
 
 # ---- builder: compile ytb_dl_tui from source -------------------------------
+# The whole repo, not just tui/ + core/: this is a Cargo workspace, so Cargo
+# needs every member's Cargo.toml (gui/, installer/) present to resolve the
+# workspace graph even though -p only actually builds and compiles the one
+# package we ask for (the GUI's much heavier dependency tree is never
+# touched -- this image is the terminal UI only, see the runtime stage).
 FROM rust:1-slim-bookworm AS builder
 WORKDIR /app
-COPY Cargo.toml Cargo.lock ./
-COPY src ./src
+COPY . .
 # Hard cap so a stalled crates.io fetch fails loudly instead of hanging the
 # build indefinitely.
-RUN timeout 1800 cargo build --release --locked
+RUN timeout 1800 cargo build --release --locked -p ytb_dl_tui
 
 # ---- runtime: minimal image with just what's needed to run it -------------
 FROM debian:bookworm-slim
