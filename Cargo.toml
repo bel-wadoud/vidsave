@@ -1,8 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["core", "tui", "installer"]
-# "gui" joins this list once it's a real crate, not a work-in-progress
-# scratch directory -- see the GUI feature's own commit.
+members = ["core", "tui", "gui", "installer"]
 
 [workspace.package]
 version = "2.1.0"

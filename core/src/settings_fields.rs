@@ -134,6 +134,25 @@ impl SettingsField {
         }
     }
 
+    /// Current value of a `FieldKind::Toggle` field (meaningless for any
+    /// other kind -- returns `false`). Split out from `display_value`
+    /// (which renders "On"/"Off" as a string) so a GUI frontend's checkbox
+    /// widget can bind to a real `bool` instead of string-matching it back.
+    pub fn bool_value(self, s: &Settings) -> bool {
+        match self {
+            SettingsField::EmbedThumbnail => s.embed_thumbnail,
+            SettingsField::EmbedMetadata => s.embed_metadata,
+            SettingsField::EmbedChapters => s.embed_chapters,
+            SettingsField::WriteSubtitles => s.write_subtitles,
+            SettingsField::EmbedSubtitles => s.embed_subtitles,
+            SettingsField::WriteAutoSubs => s.write_auto_subs,
+            SettingsField::UseArchive => s.use_download_archive,
+            SettingsField::PlaylistReverse => s.playlist_reverse,
+            SettingsField::SponsorblockRemove => s.sponsorblock_remove,
+            _ => false,
+        }
+    }
+
     pub fn toggle(self, s: &mut Settings) {
         match self {
             SettingsField::EmbedThumbnail => s.embed_thumbnail = !s.embed_thumbnail,
