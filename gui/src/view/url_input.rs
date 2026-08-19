@@ -1,10 +1,14 @@
-use iced::widget::{button, column, container, row, scrollable, text, text_input};
-use iced::{Center, Element, Fill};
+//! The Download tab's starting screen: paste a URL, fetch it. Settings and
+//! History used to be squeezed onto this screen too (a gear button and an
+//! embedded list); both are their own tabs now, always one click away, so
+//! this screen only has to do the one thing its name says.
 
-use vidsave_core::history::HistoryEntry;
+use iced::widget::{button, column, container, row, text, text_input};
+use iced::{Center, Element, Fill};
 
 use crate::message::Message;
 use crate::state::State;
+use crate::theme;
 
 pub fn view(state: &State) -> Element<'_, Message> {
     let title = text("VidSave").size(32);
@@ -29,89 +33,13 @@ pub fn view(state: &State) -> Element<'_, Message> {
 
     let url_row = row![input, fetch_button].spacing(10).align_y(Center);
 
-    let settings_button = button(text("⚙ Settings").size(14))
-        .style(button::secondary)
-        .on_press(Message::OpenSettings);
-
     let status = setup_status(state);
 
-    let top = column![
-        title,
-        subtitle,
-        url_row,
-        row![settings_button].width(Fill),
-        status,
-    ]
-    .spacing(16);
-
-    let content = column![container(top).max_width(720), history_section(state),]
-        .spacing(20)
-        .height(Fill);
+    let content = column![title, subtitle, url_row, status].spacing(16);
 
     container(container(content).max_width(720))
         .width(Fill)
         .center_x(Fill)
-        .into()
-}
-
-/// The "bigger list" below the URL input: every recorded download batch,
-/// newest first. Clicking a playlist/channel entry drills into its video
-/// list; clicking a single-video entry goes straight to that video's
-/// details -- see `update::update`'s `OpenHistoryEntry` handler.
-fn history_section(state: &State) -> Element<'_, Message> {
-    let heading = text("Download history").size(16);
-
-    if state.history.is_empty() {
-        return column![
-            heading,
-            text("Nothing downloaded yet -- finished batches show up here.")
-                .size(13)
-                .color(iced::Color::from_rgb8(0x9E, 0x9E, 0x9E)),
-        ]
-        .spacing(8)
-        .into();
-    }
-
-    let rows = state
-        .history
-        .iter()
-        .enumerate()
-        .map(|(i, entry)| history_row(i, entry));
-    let list = scrollable(column(rows).spacing(4)).height(Fill);
-
-    column![heading, list].spacing(8).height(Fill).into()
-}
-
-fn history_row(index: usize, entry: &HistoryEntry) -> Element<'_, Message> {
-    let icon = if entry.is_single_video() {
-        "•"
-    } else {
-        "▤"
-    };
-    let failed = entry.failed_count();
-    let failed_suffix = if failed > 0 {
-        format!(", {failed} failed")
-    } else {
-        String::new()
-    };
-    let label = column![
-        text(format!("{icon} {}", entry.title)).size(13),
-        text(format!(
-            "{}/{} done{failed_suffix}   {}",
-            entry.done_count(),
-            entry.videos.len(),
-            entry.finished_at_label(),
-        ))
-        .size(11)
-        .color(iced::Color::from_rgb8(0x9E, 0x9E, 0x9E)),
-    ]
-    .spacing(2);
-
-    button(label)
-        .style(button::text)
-        .width(Fill)
-        .padding(8)
-        .on_press(Message::OpenHistoryEntry(index))
         .into()
 }
 
@@ -120,10 +48,10 @@ fn history_row(index: usize, entry: &HistoryEntry) -> Element<'_, Message> {
 /// not, roughly why. Always shows *something*: never leaves the screen
 /// looking like it's doing nothing when it's actually still checking.
 fn setup_status(state: &State) -> Element<'_, Message> {
-    let ok = iced::Color::from_rgb8(0x4C, 0xAF, 0x50);
-    let warn = iced::Color::from_rgb8(0xFF, 0xB7, 0x4D);
-    let err = iced::Color::from_rgb8(0xE5, 0x73, 0x73);
-    let dim = iced::Color::from_rgb8(0x9E, 0x9E, 0x9E);
+    let ok = theme::success();
+    let warn = theme::warning();
+    let err = theme::danger();
+    let dim = theme::text_dim();
 
     if !state.tools_checked {
         return text("Checking your setup...").size(13).color(dim).into();

@@ -10,4 +10,5 @@ pub mod downloader;
 pub mod history;
 pub mod models;
 pub mod settings_fields;
+pub mod update_check;
 pub mod ytdlp;

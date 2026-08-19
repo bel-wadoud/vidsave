@@ -28,6 +28,25 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
         }
         return;
     }
+    // Global, like F1 -- reachable from anywhere, always toggle back to
+    // UrlInput rather than needing full origin-tracking for two screens
+    // that are informational stops, not part of the main task flow.
+    if key.code == KeyCode::F(3) {
+        app.screen = if app.screen == Screen::Updates {
+            Screen::UrlInput
+        } else {
+            Screen::Updates
+        };
+        return;
+    }
+    if key.code == KeyCode::F(4) {
+        app.screen = if app.screen == Screen::About {
+            Screen::UrlInput
+        } else {
+            Screen::About
+        };
+        return;
+    }
 
     match app.screen {
         Screen::UrlInput => handle_url_input(app, key),
@@ -37,6 +56,8 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
         Screen::Downloading => handle_downloading(app, key),
         Screen::HistoryPlaylist => handle_history_playlist(app, key),
         Screen::HistoryVideoDetail => handle_history_video_detail(app, key),
+        Screen::Updates => handle_updates(app, key),
+        Screen::About => handle_about(app, key),
     }
 }
 
@@ -253,6 +274,24 @@ fn handle_downloading(app: &mut App, key: KeyEvent) {
             }
         }
         KeyCode::Esc => app.screen = Screen::VideoList,
+        KeyCode::Char('q') => app.should_quit = true,
+        _ => {}
+    }
+}
+
+fn handle_updates(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Enter | KeyCode::Char('c') => app.begin_update_check(),
+        KeyCode::Char('i') => app.begin_install_update(),
+        KeyCode::Esc | KeyCode::F(3) => app.screen = Screen::UrlInput,
+        KeyCode::Char('q') => app.should_quit = true,
+        _ => {}
+    }
+}
+
+fn handle_about(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc | KeyCode::F(4) => app.screen = Screen::UrlInput,
         KeyCode::Char('q') => app.should_quit = true,
         _ => {}
     }

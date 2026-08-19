@@ -5,6 +5,48 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-08-19
+
+### Added
+
+- Desktop app: a persistent tab bar (Download, History, Settings, Updates,
+  About) replaces the old design, where Settings was a modal-ish overlay
+  and History was squeezed below the URL box on just one screen -- every
+  part of the app is now one click away, all the time.
+- Automatic update checking: the app checks GitHub for a newer release
+  shortly after startup (and on demand from the new Updates tab/screen),
+  and can download and install it with one click/keypress -- it downloads
+  the real installer and hands off to it (matching whichever of the
+  desktop app / terminal version you already have installed), since a
+  running Windows `.exe` can't overwrite itself in place.
+- Desktop notifications: a popup when a download batch finishes (done/
+  failed counts) and when an update becomes available, even if the window
+  isn't focused. The terminal version surfaces the same information as a
+  status-line message instead, since a background terminal doesn't get
+  desktop popups.
+- An About screen/tab: what the app is, who made it (bel-wadoud), and how
+  to reach them, plus the license and source link.
+- A "Retry" button/key for anything that failed after 2.2.0's automatic
+  retries ran out.
+
+### Fixed
+
+- The desktop app's downloading screen no longer looks like it's frozen
+  while yt-dlp is still resolving a video's info (this can genuinely take
+  10-30 seconds) -- it now says so, instead of just sitting on "Starting"
+  with nothing else to look at.
+- Confirmed pause/resume itself was never actually broken (a real,
+  monitored test run showed it correctly relaunching and resuming a
+  partial download) -- what looked like a hang was the same "Starting"
+  phase above giving no feedback.
+- Root-caused reports of every video in a playlist failing with
+  `HTTP Error 403: Forbidden`: it's YouTube's PO-Token requirement, an
+  active, ongoing fight between yt-dlp and YouTube, not a bug in this
+  app -- reproduced identically with a completely unmodified yt-dlp
+  install. No fix exists on our end beyond yt-dlp's own (frequent)
+  updates catching up, which is exactly what the new Retry button and
+  update checker are for.
+
 ## [2.2.1] - 2026-08-19
 
 ### Added
@@ -152,6 +194,7 @@ Initial release.
   `PATH` -- no admin/root required.
 - Docker image bundling the app with all of its runtime dependencies.
 
+[3.0.0]: https://github.com/bel-wadoud/vidsave/releases/tag/v3.0.0
 [2.2.1]: https://github.com/bel-wadoud/vidsave/releases/tag/v2.2.1
 [2.2.0]: https://github.com/bel-wadoud/vidsave/releases/tag/v2.2.0
 [2.1.5]: https://github.com/bel-wadoud/vidsave/releases/tag/v2.1.5

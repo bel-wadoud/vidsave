@@ -38,7 +38,10 @@ async fn main() -> Result<()> {
     let binary_status = ytdlp::check_binaries().await;
 
     let mut terminal = setup_terminal()?;
-    let app = App::new(settings, binary_status, cli.url);
+    let mut app = App::new(settings, binary_status, cli.url);
+    // Silent, informational only -- surfaces on the Updates screen (F3)
+    // plus a status line if one's found, never blocks or delays anything.
+    app.begin_update_check();
     let result = run(&mut terminal, app).await;
     restore_terminal(&mut terminal)?;
 
@@ -123,6 +126,38 @@ async fn recv_download_event(session: &mut Option<DownloadSession>) -> Option<Do
     }
 }
 
+/// Same "poll in place, only clear once it actually resolves" reasoning as
+/// `recv_fetch` -- see its doc comment.
+async fn recv_update_check(
+    rx: &mut Option<
+        oneshot::Receiver<Result<Option<vidsave_core::update_check::UpdateInfo>, String>>,
+    >,
+) -> Option<Result<Option<vidsave_core::update_check::UpdateInfo>, String>> {
+    let result = match rx {
+        Some(receiver) => receiver.await,
+        None => return std::future::pending().await,
+    };
+    *rx = None;
+    match result {
+        Ok(result) => Some(result),
+        Err(_) => Some(Err("the update check ended unexpectedly".to_string())),
+    }
+}
+
+async fn recv_update_install(
+    rx: &mut Option<oneshot::Receiver<Result<(), String>>>,
+) -> Option<Result<(), String>> {
+    let result = match rx {
+        Some(receiver) => receiver.await,
+        None => return std::future::pending().await,
+    };
+    *rx = None;
+    match result {
+        Ok(result) => Some(result),
+        Err(_) => Some(Err("the update install task ended unexpectedly".to_string())),
+    }
+}
+
 async fn run(terminal: &mut Term, mut app: App) -> Result<()> {
     let mut term_events = spawn_input_thread();
     let mut tick = tokio::time::interval(Duration::from_millis(150));
@@ -149,6 +184,20 @@ async fn run(terminal: &mut Term, mut app: App) -> Result<()> {
                 match event {
                     Some(ev) => app.on_download_event(ev),
                     None => app.on_download_channel_closed(),
+                }
+            }
+            result = recv_update_check(&mut app.update_check_rx), if app.update_check_rx.is_some() => {
+                if let Some(result) = result {
+                    app.on_update_check_result(result);
+                }
+            }
+            result = recv_update_install(&mut app.update_install_rx), if app.update_install_rx.is_some() => {
+                if let Some(result) = result
+                    && app.on_update_install_result(result)
+                {
+                    // The installer's been launched -- it needs this
+                    // process' files unlocked to overwrite them.
+                    break;
                 }
             }
             _ = tick.tick() => {

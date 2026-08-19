@@ -9,7 +9,10 @@ pub fn draw(frame: &mut Frame, screen: Screen) {
     let area = centered_rect(60, 60, frame.area());
     frame.render_widget(Clear, area);
 
-    let mut lines = vec![Line::from("Global: F1 help   Ctrl+C quit"), Line::from("")];
+    let mut lines = vec![
+        Line::from("Global: F1 help   F3 updates   F4 about   Ctrl+C quit"),
+        Line::from(""),
+    ];
     match screen {
         Screen::UrlInput => lines.extend([
             Line::from("Enter          Fetch playlist / video"),
@@ -53,6 +56,16 @@ pub fn draw(frame: &mut Frame, screen: Screen) {
         ]),
         Screen::HistoryVideoDetail => lines.extend([
             Line::from("Esc            Back"),
+            Line::from("q              Quit"),
+        ]),
+        Screen::Updates => lines.extend([
+            Line::from("Enter, c       Check for updates"),
+            Line::from("i              Download and install (when one's available)"),
+            Line::from("Esc, F3        Back"),
+            Line::from("q              Quit"),
+        ]),
+        Screen::About => lines.extend([
+            Line::from("Esc, F4        Back"),
             Line::from("q              Quit"),
         ]),
     }

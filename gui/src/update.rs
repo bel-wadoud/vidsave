@@ -11,10 +11,11 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use vidsave_core::downloader::{self, BinaryPaths, DownloadEvent};
 use vidsave_core::history::{self, HistoryEntry};
 use vidsave_core::models::{self, DownloadItem, DownloadState, PlaylistInfo, Video};
+use vidsave_core::update_check::{self, UpdateInfo};
 use vidsave_core::ytdlp::{self, JsRuntime, YtDlp};
 
 use crate::message::Message;
-use crate::state::{Screen, State, StatusKind};
+use crate::state::{Screen, State, StatusKind, UpdateStatus};
 
 pub fn update(state: &mut State, message: Message) -> Task<Message> {
     match message {
@@ -31,6 +32,11 @@ pub fn update(state: &mut State, message: Message) -> Task<Message> {
                 Some(url) if state.binary_status.ready() => begin_fetch(state, url),
                 _ => Task::none(),
             }
+        }
+
+        Message::TabSelected(tab) => {
+            state.switch_tab(tab);
+            Task::none()
         }
 
         // -- URL input --
@@ -100,16 +106,7 @@ pub fn update(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::StartDownloadsPressed => start_downloads(state),
 
-        // -- Settings panel --
-        Message::OpenSettings => {
-            state.show_settings = true;
-            state.settings_saved_flash = false;
-            Task::none()
-        }
-        Message::CloseSettings => {
-            state.show_settings = false;
-            Task::none()
-        }
+        // -- Settings tab --
         Message::SettingsToggled(field) => {
             field.toggle(&mut state.settings);
             Task::none()
@@ -148,10 +145,7 @@ pub fn update(state: &mut State, message: Message) -> Task<Message> {
         }
 
         // -- Downloading --
-        Message::DownloadEvent(event) => {
-            apply_download_event(state, event);
-            Task::none()
-        }
+        Message::DownloadEvent(event) => apply_download_event(state, event),
         Message::PauseItem(index) => {
             if let Some(handle) = &state.download_handle {
                 handle.pause_item(index);
@@ -222,7 +216,7 @@ pub fn update(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::BackFromHistoryPlaylist => {
             state.history_open = None;
-            state.screen = Screen::UrlInput;
+            state.screen = Screen::HistoryList;
             Task::none()
         }
         Message::BackFromHistoryVideoDetail => {
@@ -231,11 +225,44 @@ pub fn update(state: &mut State, message: Message) -> Task<Message> {
                 .is_some_and(HistoryEntry::is_single_video);
             if single_video {
                 state.history_open = None;
-                state.screen = Screen::UrlInput;
+                state.screen = Screen::HistoryList;
             } else {
                 state.history_video_open = None;
                 state.screen = Screen::HistoryPlaylist;
             }
+            Task::none()
+        }
+
+        // -- Updates tab --
+        Message::CheckForUpdates => {
+            state.update_status = UpdateStatus::Checking;
+            Task::perform(check_for_update(), Message::UpdateCheckCompleted)
+        }
+        Message::UpdateCheckCompleted(result) => {
+            match result {
+                Ok(Some(info)) => {
+                    crate::notify::notify(
+                        "Update available",
+                        format!("VidSave {} is ready to install", info.version),
+                    );
+                    state.update_status = UpdateStatus::Available(info);
+                }
+                Ok(None) => state.update_status = UpdateStatus::UpToDate,
+                Err(e) => state.update_status = UpdateStatus::Error(e),
+            }
+            Task::none()
+        }
+        Message::InstallUpdatePressed => {
+            let UpdateStatus::Available(info) = &state.update_status else {
+                return Task::none();
+            };
+            let info = info.clone();
+            state.update_status = UpdateStatus::Installing;
+            Task::perform(install_update(info), Message::UpdateInstallResult)
+        }
+        Message::UpdateInstallResult(Ok(())) => iced::exit(),
+        Message::UpdateInstallResult(Err(e)) => {
+            state.update_status = UpdateStatus::Error(e);
             Task::none()
         }
     }
@@ -245,8 +272,28 @@ async fn check_tools() -> vidsave_core::ytdlp::BinaryStatus {
     ytdlp::check_binaries().await
 }
 
+/// Kicks off the startup tool probe and a background update check
+/// together -- the update check is purely informational (surfaces on the
+/// Updates tab, plus a notification if one's found) and never blocks or
+/// delays anything the tool probe gates.
 pub fn initial_task() -> Task<Message> {
-    Task::perform(check_tools(), Message::ToolsChecked)
+    Task::batch([
+        Task::perform(check_tools(), Message::ToolsChecked),
+        Task::perform(check_for_update(), Message::UpdateCheckCompleted),
+    ])
+}
+
+async fn check_for_update() -> Result<Option<UpdateInfo>, String> {
+    update_check::check_for_update(env!("CARGO_PKG_VERSION"))
+        .await
+        .map_err(|e| format!("{e:#}"))
+}
+
+async fn install_update(info: UpdateInfo) -> Result<(), String> {
+    let components = update_check::detect_installed_components();
+    update_check::download_and_launch_installer(&info, &components)
+        .await
+        .map_err(|e| format!("{e:#}"))
 }
 
 async fn fetch(
@@ -348,7 +395,7 @@ fn start_downloads(state: &mut State) -> Task<Message> {
     Task::run(UnboundedReceiverStream::new(events), Message::DownloadEvent)
 }
 
-fn apply_download_event(state: &mut State, event: DownloadEvent) {
+fn apply_download_event(state: &mut State, event: DownloadEvent) -> Task<Message> {
     let (index, new_state) = match event {
         DownloadEvent::Started(i) => (i, DownloadState::Starting),
         DownloadEvent::Progress(i, p) => (i, DownloadState::Downloading(p)),
@@ -357,7 +404,7 @@ fn apply_download_event(state: &mut State, event: DownloadEvent) {
             if let Some(item) = state.items.get_mut(i) {
                 item.push_log(line);
             }
-            return;
+            return Task::none();
         }
         DownloadEvent::Finished(i, Ok(())) => (i, DownloadState::Done),
         DownloadEvent::Finished(i, Err(msg)) => (i, DownloadState::Failed(msg)),
@@ -374,13 +421,29 @@ fn apply_download_event(state: &mut State, event: DownloadEvent) {
     {
         state.batch_done = true;
         record_history(state);
+        let done = state
+            .items
+            .iter()
+            .filter(|i| i.state == DownloadState::Done)
+            .count();
+        let failed = state
+            .items
+            .iter()
+            .filter(|i| matches!(i.state, DownloadState::Failed(_)))
+            .count();
+        let body = if failed > 0 {
+            format!("{done} done, {failed} failed")
+        } else {
+            format!("{done} of {} finished", state.items.len())
+        };
+        crate::notify::notify("Download finished", body);
     }
+    Task::none()
 }
 
 /// Appends this just-finished batch to `history.json` and to the in-memory
-/// list shown on the URL input screen -- called exactly once per batch,
-/// right as `batch_done` flips to `true`. Mirrors the TUI's
-/// `App::record_history`.
+/// list shown on the History tab -- called exactly once per batch, right
+/// as `batch_done` flips to `true`. Mirrors the TUI's `App::record_history`.
 fn record_history(state: &mut State) {
     let Some(playlist) = &state.playlist else {
         return;

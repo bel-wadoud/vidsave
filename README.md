@@ -26,14 +26,18 @@ A [Docker image](#docker) is also available (terminal version only).
 
 ## Usage
 
-Launch **VidSave** from your Start Menu / app launcher, paste a
-playlist, channel, or video URL, pick which videos you want, adjust
-quality/format/subtitles in Settings, then start the download.
+Launch **VidSave** from your Start Menu / app launcher. The Download tab
+is where you paste a playlist, channel, or video URL, pick which videos
+you want, adjust quality/format/subtitles in Settings, then start the
+download. History keeps a record of every past batch -- click into a
+playlist entry to see what happened to each of its videos. Updates checks
+for a newer version automatically and can install it with one click.
 
 <p>
-  <img src="assets/screenshots/url-input.png" width="32%" alt="VidSave's URL entry screen">
-  <img src="assets/screenshots/video-list.png" width="32%" alt="VidSave's video selection screen">
-  <img src="assets/screenshots/downloading.png" width="32%" alt="VidSave downloading a playlist, with per-video progress and pause/resume/cancel">
+  <img src="assets/screenshots/url-input.png" width="24%" alt="VidSave's URL entry screen, with the Download/History/Settings/Updates/About tabs">
+  <img src="assets/screenshots/video-list.png" width="24%" alt="VidSave's video selection screen">
+  <img src="assets/screenshots/downloading.png" width="24%" alt="VidSave downloading a playlist, with per-video progress and pause/resume/retry/cancel">
+  <img src="assets/screenshots/updates.png" width="24%" alt="VidSave's Updates tab showing an available update">
 </p>
 
 Prefer a terminal? Run `vidsave-tui` from any terminal window instead --
@@ -47,12 +51,15 @@ vidsave-tui
 vidsave-tui 'https://www.youtube.com/playlist?list=...'
 ```
 
+Global, from any screen: `F1` help, `F3` updates, `F4` about, `Ctrl+C` quit.
+
 | Screen | Keys |
 |---|---|
-| URL input | `Enter` fetch, `F2` settings |
+| URL input | `Enter` fetch, `F2` settings, `Tab` browse download history |
 | Video list | `Up`/`Down` move, `Space` toggle, `a`/`n`/`i` select all/none/invert, `/` filter, `Enter` start download |
 | Settings | `Up`/`Down` move, `Left`/`Right`/`Enter` change value, `Shift+S` save |
-| Downloading | `p` pause selected, `r` resume selected, `c` cancel selected, `C` cancel all, `Esc` back to the list |
+| Downloading | `p` pause, `r` resume/retry, `c` cancel selected, `C` cancel all, `Esc` back to the list |
+| Updates | `Enter`/`c` check for updates, `i` install (when available) |
 
 Settings are saved to a config file in your platform's usual config
 directory (e.g. `~/.config/vidsave/config.toml` on Linux) and shared

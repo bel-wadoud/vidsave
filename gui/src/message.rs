@@ -1,12 +1,18 @@
 use vidsave_core::downloader::DownloadEvent;
 use vidsave_core::models::{AudioFormat, MediaMode, PlaylistInfo, VideoContainer, VideoQuality};
 use vidsave_core::settings_fields::SettingsField;
+use vidsave_core::update_check::UpdateInfo;
 use vidsave_core::ytdlp::BinaryStatus;
+
+use crate::state::Tab;
 
 #[derive(Debug, Clone)]
 pub enum Message {
     /// The startup tool probe (yt-dlp/ffmpeg/JS runtime) completed.
     ToolsChecked(BinaryStatus),
+
+    /// Switches the active tab -- see `state::Tab`.
+    TabSelected(Tab),
 
     // -- URL input --
     UrlChanged(String),
@@ -22,9 +28,7 @@ pub enum Message {
     BackToUrlInput,
     StartDownloadsPressed,
 
-    // -- Settings panel --
-    OpenSettings,
-    CloseSettings,
+    // -- Settings tab --
     SettingsToggled(SettingsField),
     SettingsTextChanged(SettingsField, String),
     MediaModePicked(MediaMode),
@@ -52,4 +56,15 @@ pub enum Message {
     OpenHistoryVideo(usize),
     BackFromHistoryPlaylist,
     BackFromHistoryVideoDetail,
+
+    // -- Updates tab --
+    /// Fired once automatically shortly after startup, and again any time
+    /// "Check for updates" is pressed.
+    CheckForUpdates,
+    UpdateCheckCompleted(Result<Option<UpdateInfo>, String>),
+    InstallUpdatePressed,
+    /// `Ok` means the installer was launched successfully -- the app exits
+    /// right after (see `update::update`) so the installer can overwrite
+    /// files this process currently has open.
+    UpdateInstallResult(Result<(), String>),
 }

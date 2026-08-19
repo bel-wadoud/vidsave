@@ -166,6 +166,10 @@ fn item_log(item: &DownloadItem) -> Element<'_, Message> {
 
 fn extra_info(item: &DownloadItem) -> String {
     match &item.state {
+        // yt-dlp can sit here for a while (resolving formats, solving a JS
+        // challenge, ...) with nothing to report yet -- without this line
+        // that looks exactly like it's frozen. Set the expectation instead.
+        DownloadState::Starting => "Resolving video info -- can take a bit".to_string(),
         DownloadState::Downloading(p) => speed_eta(p),
         DownloadState::Paused => item
             .last_progress

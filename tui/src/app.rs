@@ -15,6 +15,7 @@ use vidsave_core::downloader::{self, DownloadEvent, DownloadHandle};
 use vidsave_core::history::{self, HistoryEntry};
 use vidsave_core::models::{DownloadItem, DownloadState, PlaylistInfo, Video};
 use vidsave_core::settings_fields::{FieldKind, SettingsField};
+use vidsave_core::update_check::{self, UpdateInfo};
 use vidsave_core::ytdlp::BinaryStatus;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,6 +32,27 @@ pub enum Screen {
     /// `HistoryPlaylist` -> a video, or straight from `UrlInput` for a
     /// single-video history entry (no point showing a list of one).
     HistoryVideoDetail,
+    /// Reachable from `UrlInput` (`F3`) -- see `state::Tab`'s doc comment
+    /// on the GUI side for why this exists as its own screen there; kept
+    /// as a plain screen here rather than a literal tab bar, consistent
+    /// with how Settings already works in the terminal UI.
+    Updates,
+    About,
+}
+
+/// Where a check for updates currently stands -- mirrors the GUI's own
+/// `state::UpdateStatus` (kept as a separate type per frontend, like every
+/// other piece of UI-only state in this app -- `core` itself has no
+/// opinion on how a frontend presents "checking"/"available"/etc.).
+#[derive(Default)]
+pub enum UpdateStatus {
+    #[default]
+    Idle,
+    Checking,
+    UpToDate,
+    Available(UpdateInfo),
+    Installing,
+    Error(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -109,6 +131,11 @@ pub struct App {
     pub download_cursor: usize,
     pub download_started_at: Option<Instant>,
     pub batch_done: bool,
+
+    // -- Updates screen --
+    pub update_status: UpdateStatus,
+    pub update_check_rx: Option<tokio::sync::oneshot::Receiver<Result<Option<UpdateInfo>, String>>>,
+    pub update_install_rx: Option<tokio::sync::oneshot::Receiver<Result<(), String>>>,
 }
 
 impl App {
@@ -147,6 +174,9 @@ impl App {
             download_cursor: 0,
             download_started_at: None,
             batch_done: false,
+            update_status: UpdateStatus::default(),
+            update_check_rx: None,
+            update_install_rx: None,
         };
         if let Some(url) = initial_url {
             app.url_input = Input::new(url.clone());
@@ -488,6 +518,66 @@ impl App {
         match self.settings.save() {
             Ok(()) => self.set_status("Settings saved", MessageKind::Info),
             Err(e) => self.set_status(format!("Could not save settings: {e}"), MessageKind::Error),
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Updates screen
+    // ---------------------------------------------------------------
+
+    pub fn begin_update_check(&mut self) {
+        self.update_status = UpdateStatus::Checking;
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.update_check_rx = Some(rx);
+        tokio::spawn(async move {
+            let result = update_check::check_for_update(env!("CARGO_PKG_VERSION"))
+                .await
+                .map_err(|e| format!("{e:#}"));
+            let _ = tx.send(result);
+        });
+    }
+
+    pub fn on_update_check_result(&mut self, result: Result<Option<UpdateInfo>, String>) {
+        if let Ok(Some(info)) = &result {
+            self.set_status(
+                format!("Update available: v{} -- see F3", info.version),
+                MessageKind::Info,
+            );
+        }
+        self.update_status = match result {
+            Ok(Some(info)) => UpdateStatus::Available(info),
+            Ok(None) => UpdateStatus::UpToDate,
+            Err(e) => UpdateStatus::Error(e),
+        };
+    }
+
+    pub fn begin_install_update(&mut self) {
+        let UpdateStatus::Available(info) = &self.update_status else {
+            return;
+        };
+        let info = info.clone();
+        self.update_status = UpdateStatus::Installing;
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.update_install_rx = Some(rx);
+        tokio::spawn(async move {
+            let components = update_check::detect_installed_components();
+            let result = update_check::download_and_launch_installer(&info, &components)
+                .await
+                .map_err(|e| format!("{e:#}"));
+            let _ = tx.send(result);
+        });
+    }
+
+    /// `Ok` means the installer was launched -- the caller (`main.rs`'s
+    /// event loop) exits right after, same reasoning as the GUI's
+    /// `Message::UpdateInstallResult` handler.
+    pub fn on_update_install_result(&mut self, result: Result<(), String>) -> bool {
+        match result {
+            Ok(()) => true,
+            Err(e) => {
+                self.update_status = UpdateStatus::Error(e);
+                false
+            }
         }
     }
 }

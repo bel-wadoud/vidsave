@@ -16,13 +16,7 @@ use vidsave_core::settings_fields::{FieldKind, SettingsField};
 
 use crate::message::Message;
 use crate::state::State;
-
-const DIM: iced::Color = iced::Color {
-    r: 0.55,
-    g: 0.55,
-    b: 0.55,
-    a: 1.0,
-};
+use crate::theme;
 
 pub fn view(state: &State) -> Element<'_, Message> {
     let mut rows: Vec<Element<'_, Message>> = Vec::new();
@@ -41,9 +35,6 @@ pub fn view(state: &State) -> Element<'_, Message> {
         "Save to disk"
     };
     let footer = row![
-        button(text("← Back").size(14))
-            .style(button::secondary)
-            .on_press(Message::CloseSettings),
         iced::widget::Space::new().width(Fill),
         button(text(save_label).size(14))
             .style(button::primary)
@@ -68,23 +59,23 @@ pub fn view(state: &State) -> Element<'_, Message> {
 }
 
 fn section_header(title: &'static str) -> Element<'static, Message> {
-    container(
-        text(title.to_uppercase())
-            .size(12)
-            .color(iced::Color::from_rgb8(0x64, 0xB5, 0xF6)),
-    )
-    .padding(iced::Padding {
-        top: 10.0,
-        right: 0.0,
-        bottom: 2.0,
-        left: 0.0,
-    })
-    .into()
+    container(text(title.to_uppercase()).size(12).color(theme::info()))
+        .padding(iced::Padding {
+            top: 10.0,
+            right: 0.0,
+            bottom: 2.0,
+            left: 0.0,
+        })
+        .into()
 }
 
 fn field_row(field: SettingsField, settings: &Settings) -> Element<'_, Message> {
     let relevant = field.relevant_for(settings.media_mode);
-    let label_color = if relevant { None } else { Some(DIM) };
+    let label_color = if relevant {
+        None
+    } else {
+        Some(theme::text_dim())
+    };
     let mut label = text(field.label()).size(14).width(230);
     if let Some(c) = label_color {
         label = label.color(c);

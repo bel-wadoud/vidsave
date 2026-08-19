@@ -1,11 +1,13 @@
 //! Top-level render dispatch: picks the widget tree for the active screen
 //! and draws the shared status bar / help overlay on top.
 
+mod about;
 mod downloading;
 mod help;
 mod history_playlist;
 mod history_video_detail;
 mod settings;
+mod updates;
 mod url_input;
 mod video_list;
 
@@ -28,6 +30,8 @@ pub fn draw(frame: &mut Frame, app: &App) {
         Screen::Downloading => downloading::draw(frame, app, chunks[0]),
         Screen::HistoryPlaylist => history_playlist::draw(frame, app, chunks[0]),
         Screen::HistoryVideoDetail => history_video_detail::draw(frame, app, chunks[0]),
+        Screen::Updates => updates::draw(frame, app, chunks[0]),
+        Screen::About => about::draw(frame, app, chunks[0]),
     }
 
     draw_status_bar(frame, app, chunks[1]);

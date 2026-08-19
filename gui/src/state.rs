@@ -1,9 +1,8 @@
-//! Application state: everything `view` reads and `update` mutates. Mirrors
-//! the TUI's `app.rs` state machine (same screens, same settings-origin
-//! concept for where the Settings panel returns to) but adapted for a
-//! desktop layout: Settings is a panel you open/close over whichever screen
-//! you were on, rather than a distinct screen of its own, and video
-//! selection/downloads are driven by clicks rather than a cursor.
+//! Application state: everything `view` reads and `update` mutates.
+//! Navigation is tab-based (`Tab`/`Screen::tab`) -- Download, History,
+//! Settings, Updates, and About are always one click away via the top tab
+//! bar, rather than Settings being a special overlay and History being
+//! squeezed below the URL box like in earlier versions.
 
 use std::collections::HashSet;
 
@@ -11,19 +10,78 @@ use vidsave_core::config::Settings;
 use vidsave_core::downloader::DownloadHandle;
 use vidsave_core::history::{self, HistoryEntry};
 use vidsave_core::models::{DownloadItem, PlaylistInfo};
+use vidsave_core::update_check::UpdateInfo;
 use vidsave_core::ytdlp::BinaryStatus;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tab {
+    Download,
+    History,
+    Settings,
+    Updates,
+    About,
+}
+
+impl Tab {
+    pub const ALL: [Tab; 5] = [
+        Tab::Download,
+        Tab::History,
+        Tab::Settings,
+        Tab::Updates,
+        Tab::About,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Tab::Download => "Download",
+            Tab::History => "History",
+            Tab::Settings => "Settings",
+            Tab::Updates => "Updates",
+            Tab::About => "About",
+        }
+    }
+
+    /// The screen shown when this tab is first selected.
+    fn home_screen(self) -> Screen {
+        match self {
+            Tab::Download => Screen::UrlInput,
+            Tab::History => Screen::HistoryList,
+            Tab::Settings => Screen::Settings,
+            Tab::Updates => Screen::Updates,
+            Tab::About => Screen::About,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
     UrlInput,
     VideoList,
     Downloading,
+    HistoryList,
     /// Drilled into one playlist/channel history entry -- see
     /// `State::history_open`.
     HistoryPlaylist,
     /// One video's recorded outcome, reached either from `HistoryPlaylist`
-    /// or straight from `UrlInput` for a single-video entry.
+    /// or straight from `HistoryList` for a single-video entry.
     HistoryVideoDetail,
+    Settings,
+    Updates,
+    About,
+}
+
+impl Screen {
+    pub fn tab(self) -> Tab {
+        match self {
+            Screen::UrlInput | Screen::VideoList | Screen::Downloading => Tab::Download,
+            Screen::HistoryList | Screen::HistoryPlaylist | Screen::HistoryVideoDetail => {
+                Tab::History
+            }
+            Screen::Settings => Tab::Settings,
+            Screen::Updates => Tab::Updates,
+            Screen::About => Tab::About,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,6 +95,20 @@ pub struct StatusMessage {
     pub kind: StatusKind,
 }
 
+/// Where a check for updates currently stands -- drives the Updates tab
+/// (and a startup notification, see `notify.rs`) without needing separate
+/// booleans that could disagree with each other.
+#[derive(Default)]
+pub enum UpdateStatus {
+    #[default]
+    Idle,
+    Checking,
+    UpToDate,
+    Available(UpdateInfo),
+    Installing,
+    Error(String),
+}
+
 pub struct State {
     pub settings: Settings,
     pub binary_status: BinaryStatus,
@@ -47,12 +119,6 @@ pub struct State {
     pub tools_checked: bool,
     pub screen: Screen,
     pub status: Option<StatusMessage>,
-
-    // -- Settings panel: an overlay-ish toggle rather than its own screen
-    // -- (unlike the TUI's `SettingsOrigin`-tracked separate Screen), so
-    // -- closing it just returns to whatever `screen` already was -- opening
-    // -- it never touches `screen` in the first place.
-    pub show_settings: bool,
     pub settings_saved_flash: bool,
 
     // -- URL input / fetching --
@@ -77,14 +143,16 @@ pub struct State {
     pub expanded_items: HashSet<usize>,
     pub batch_done: bool,
 
-    // -- Download history: a list on the URL input screen, drilling into
-    // -- HistoryPlaylist / HistoryVideoDetail -- see `history.rs`.
+    // -- Download history --
     pub history: Vec<HistoryEntry>,
     /// Index into `history` of the entry currently drilled into.
     pub history_open: Option<usize>,
     /// Index into `history[history_open].videos` currently shown on
     /// `HistoryVideoDetail`.
     pub history_video_open: Option<usize>,
+
+    // -- Updates --
+    pub update_status: UpdateStatus,
 }
 
 impl State {
@@ -95,7 +163,6 @@ impl State {
             tools_checked: false,
             screen: Screen::UrlInput,
             status: None,
-            show_settings: false,
             settings_saved_flash: false,
             url_input: initial_url.clone().unwrap_or_default(),
             fetching: false,
@@ -111,6 +178,7 @@ impl State {
             history: history::load_history(),
             history_open: None,
             history_video_open: None,
+            update_status: UpdateStatus::default(),
         }
     }
 
@@ -119,6 +187,17 @@ impl State {
             text: text.into(),
             kind,
         });
+    }
+
+    /// Switches to `tab`'s home screen -- e.g. re-selecting a tab you're
+    /// already mid-flow on (say, Download while looking at the video list)
+    /// resets back to that tab's starting point, same as clicking a tab in
+    /// any other app returns you to its top level.
+    pub fn switch_tab(&mut self, tab: Tab) {
+        if tab == Tab::Settings {
+            self.settings_saved_flash = false;
+        }
+        self.screen = tab.home_screen();
     }
 
     /// Indices into `playlist.videos` matching the current filter text

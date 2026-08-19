@@ -74,9 +74,6 @@ pub fn view(state: &State) -> Element<'_, Message> {
         button(text("← Back").size(14))
             .style(button::secondary)
             .on_press(Message::BackToUrlInput),
-        button(text("⚙ Settings").size(14))
-            .style(button::secondary)
-            .on_press(Message::OpenSettings),
         Space::new().width(Fill),
         download_button,
     ]

@@ -8,7 +8,9 @@
 
 mod cli;
 mod message;
+mod notify;
 mod state;
+mod theme;
 mod update;
 mod view;
 
