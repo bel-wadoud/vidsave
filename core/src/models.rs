@@ -295,6 +295,12 @@ pub enum DownloadState {
     Starting,
     Downloading(DownloadProgress),
     PostProcessing,
+    /// Stopped by the user (not by an error) -- resumable via
+    /// `DownloadHandle::resume_item`, which picks up from yt-dlp's own
+    /// partial-file continuation rather than starting over. Deliberately
+    /// *not* terminal (see `is_terminal`): the batch isn't "done" while
+    /// something in it is just waiting for the user to resume it.
+    Paused,
     Done,
     Skipped,
     Cancelled,
@@ -318,6 +324,7 @@ impl DownloadState {
             DownloadState::Starting => "Starting".to_string(),
             DownloadState::Downloading(p) => format!("{:>5.1}%", p.percent),
             DownloadState::PostProcessing => "Processing".to_string(),
+            DownloadState::Paused => "Paused".to_string(),
             DownloadState::Done => "Done".to_string(),
             DownloadState::Skipped => "Skipped".to_string(),
             DownloadState::Cancelled => "Cancelled".to_string(),
@@ -341,6 +348,12 @@ pub struct DownloadItem {
     pub video: Video,
     pub state: DownloadState,
     pub log: Vec<String>,
+    /// The most recent `DownloadProgress` seen for this item, kept even
+    /// after `state` moves on to something that doesn't carry one itself
+    /// (`Paused`, `PostProcessing`, ...) -- so a progress bar has something
+    /// sensible to show ("last known position") instead of resetting to 0
+    /// the moment a download is paused.
+    pub last_progress: Option<DownloadProgress>,
 }
 
 impl DownloadItem {
@@ -349,7 +362,17 @@ impl DownloadItem {
             video,
             state: DownloadState::Queued,
             log: Vec::new(),
+            last_progress: None,
         }
+    }
+
+    /// Updates `state`, additionally remembering the progress if this state
+    /// carries one -- see `last_progress`'s doc comment.
+    pub fn set_state(&mut self, state: DownloadState) {
+        if let DownloadState::Downloading(progress) = &state {
+            self.last_progress = Some(progress.clone());
+        }
+        self.state = state;
     }
 
     pub fn push_log(&mut self, line: String) {

@@ -1,13 +1,13 @@
 [package]
-name = "ytb-dl-tui-install"
+name = "playloader-install"
 version.workspace = true
 edition.workspace = true
-description = "Self-contained installer for ytb_dl_tui: a GUI wizard letting you pick the TUI, the desktop GUI, or both, plus their bundled Python runtime + vendored yt-dlp, ffmpeg, and deno"
+description = "Self-contained installer for Playloader: a setup wizard letting you pick the desktop app, the terminal version, or both, plus their bundled Python runtime + vendored yt-dlp, ffmpeg, and deno"
 license-file.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "ytb-dl-tui-install"
+name = "playloader-install"
 path = "src/main.rs"
 
 [dependencies]
@@ -27,6 +27,9 @@ lzma-rs = "0.3.0"
 [target."cfg(windows)".dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation"] }
 winreg = "0.56.0"
+
+[target."cfg(windows)".build-dependencies]
+winresource = { version = "0.1.31", default-features = false }
 
 # build.rs zips vendor/yt_dlp (relative to the workspace root) into the
 # installer binary at compile time -- see build.rs and src/main.rs.

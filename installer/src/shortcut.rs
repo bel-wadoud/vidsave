@@ -25,7 +25,10 @@ pub fn create(exe_path: &Path) -> Result<PathBuf> {
     std::fs::create_dir_all(&start_menu)
         .with_context(|| format!("creating {}", start_menu.display()))?;
 
-    let target = start_menu.join("ytb-dl-tui.url");
+    // Windows shows a .url shortcut's *filename* (there's no separate
+    // display-name field like .desktop has), so this capitalization is
+    // what actually appears in the Start Menu.
+    let target = start_menu.join("Playloader.url");
     let exe_str = exe_path.to_string_lossy().replace('\\', "/");
     let contents = format!(
         "[InternetShortcut]\r\nURL=file:///{exe_str}\r\nIconFile={}\r\nIconIndex=0\r\n",
@@ -47,16 +50,27 @@ pub fn create(exe_path: &Path) -> Result<PathBuf> {
     std::fs::create_dir_all(&apps_dir)
         .with_context(|| format!("creating {}", apps_dir.display()))?;
 
-    let target = apps_dir.join("ytb-dl-tui.desktop");
+    let target = apps_dir.join("playloader.desktop");
+    // `install_logic::run_install` writes `icon.png` next to the exe before
+    // calling this -- a `.desktop` entry's `Icon=` accepts a plain absolute
+    // path just as well as an icon-theme name, so no theme installation is
+    // needed for the app-launcher to show a real icon instead of a generic
+    // one.
+    let icon_path = exe_path
+        .parent()
+        .map(|dir| dir.join("icon.png"))
+        .unwrap_or_default();
     let contents = format!(
         "[Desktop Entry]\n\
          Type=Application\n\
-         Name=ytb-dl-tui\n\
+         Name=Playloader\n\
          Comment=Download YouTube playlists and videos\n\
          Exec=\"{}\"\n\
+         Icon={}\n\
          Terminal=false\n\
          Categories=AudioVideo;Network;\n",
-        exe_path.display()
+        exe_path.display(),
+        icon_path.display(),
     );
     std::fs::write(&target, contents).with_context(|| format!("writing {}", target.display()))?;
 

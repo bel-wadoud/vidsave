@@ -8,7 +8,7 @@ use clap::Parser;
 
 #[derive(Debug, Parser)]
 #[command(
-    name = "ytb-dl-tui-gui",
+    name = "playloader",
     version,
     about = "Desktop GUI for downloading YouTube playlists and videos via yt-dlp"
 )]

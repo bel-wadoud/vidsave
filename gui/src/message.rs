@@ -1,7 +1,7 @@
-use ytb_dl_tui_core::downloader::DownloadEvent;
-use ytb_dl_tui_core::models::{AudioFormat, MediaMode, PlaylistInfo, VideoContainer, VideoQuality};
-use ytb_dl_tui_core::settings_fields::SettingsField;
-use ytb_dl_tui_core::ytdlp::BinaryStatus;
+use playloader_core::downloader::DownloadEvent;
+use playloader_core::models::{AudioFormat, MediaMode, PlaylistInfo, VideoContainer, VideoQuality};
+use playloader_core::settings_fields::SettingsField;
+use playloader_core::ytdlp::BinaryStatus;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -35,9 +35,13 @@ pub enum Message {
 
     // -- Downloading --
     DownloadEvent(DownloadEvent),
-    SelectQueueItem(usize),
+    PauseItem(usize),
+    ResumeItem(usize),
     CancelItem(usize),
     CancelAllPressed,
+    /// Per-item "show the raw log" toggle -- off by default, since a normal
+    /// user just wants to see progress, not yt-dlp's internal output.
+    ToggleItemDetails(usize),
     BackToVideoList,
     StartOverPressed,
 }

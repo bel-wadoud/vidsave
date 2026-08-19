@@ -1,6 +1,12 @@
 # Build artifacts (one shared target dir for the whole Cargo workspace)
 /target
 
+# Compiled Python bytecode caches -- created by actually running the
+# vendored yt-dlp locally (e.g. `python -m yt_dlp`); not source, shouldn't
+# be committed (build.rs already excludes these when packaging vendor/yt_dlp
+# into the installer, regardless of whether they're present on disk).
+__pycache__/
+
 # Local editor/session state -- machine-specific, not shared
 /.claude/settings.local.json
 /.claude/scheduled_tasks.lock

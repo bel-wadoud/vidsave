@@ -1,4 +1,4 @@
-//! Shared logic behind every ytb_dl_tui frontend (the terminal UI, the
+//! Shared logic behind every playloader-tui frontend (the terminal UI, the
 //! desktop GUI, and the installer's own use of `Settings`' defaults): config
 //! persistence, download-option types, yt-dlp/ffmpeg/JS-runtime resolution
 //! and invocation, and the concurrent download queue. Nothing in this crate

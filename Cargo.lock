@@ -3051,6 +3051,65 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
+name = "playloader"
+version = "2.1.5"
+dependencies = [
+ "anyhow",
+ "clap",
+ "iced",
+ "playloader-core",
+ "tokio",
+ "tokio-stream",
+ "winresource",
+]
+
+[[package]]
+name = "playloader-core"
+version = "2.1.5"
+dependencies = [
+ "anyhow",
+ "directories",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "toml",
+ "which",
+]
+
+[[package]]
+name = "playloader-install"
+version = "2.1.5"
+dependencies = [
+ "anyhow",
+ "flate2",
+ "iced",
+ "lzma-rs",
+ "tar",
+ "tokio",
+ "tokio-stream",
+ "ureq",
+ "which",
+ "windows-sys 0.61.2",
+ "winreg",
+ "winresource",
+ "zip",
+]
+
+[[package]]
+name = "playloader-tui"
+version = "2.1.5"
+dependencies = [
+ "anyhow",
+ "clap",
+ "crossterm",
+ "playloader-core",
+ "ratatui",
+ "tokio",
+ "tui-input",
+]
+
+[[package]]
 name = "polling"
 version = "3.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5331,6 +5390,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "winresource"
+version = "0.1.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0986a8b1d586b7d3e4fe3d9ea39fb451ae22869dcea4aa109d287a374d866087"
+dependencies = [
+ "version_check",
+]
+
+[[package]]
 name = "wit-bindgen"
 version = "0.57.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5414,63 +5482,6 @@ name = "yazi"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e01738255b5a16e78bbb83e7fbba0a1e7dd506905cfc53f4622d89015a03fbb5"
-
-[[package]]
-name = "ytb-dl-tui-core"
-version = "2.1.0"
-dependencies = [
- "anyhow",
- "directories",
- "serde",
- "serde_json",
- "tokio",
- "tokio-util",
- "toml",
- "which",
-]
-
-[[package]]
-name = "ytb-dl-tui-gui"
-version = "2.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "iced",
- "tokio",
- "tokio-stream",
- "ytb-dl-tui-core",
-]
-
-[[package]]
-name = "ytb-dl-tui-install"
-version = "2.1.0"
-dependencies = [
- "anyhow",
- "flate2",
- "iced",
- "lzma-rs",
- "tar",
- "tokio",
- "tokio-stream",
- "ureq",
- "which",
- "windows-sys 0.61.2",
- "winreg",
- "zip",
-]
-
-[[package]]
-name = "ytb_dl_tui"
-version = "2.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "crossterm",
- "ratatui",
- "tokio",
- "tui-input",
- "ytb-dl-tui-core",
-]
 
 [[package]]
 name = "zbus"

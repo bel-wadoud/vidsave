@@ -18,26 +18,26 @@ TARGET="${1:-}"
 TARGET_DIR="${CARGO_TARGET_DIR:-target}"
 
 if [[ -z "$TARGET" ]]; then
-    echo "==> Building ytb_dl_tui + ytb_dl_tui_gui (native)"
-    cargo build --release -p ytb_dl_tui -p ytb-dl-tui-gui
+    echo "==> Building playloader-tui + playloader (native)"
+    cargo build --release -p playloader-tui -p playloader
     OUT_DIR="$TARGET_DIR/release"
     EXE_SUFFIX=""
-    BUILD_INSTALLER_CMD=(cargo build --release -p ytb-dl-tui-install)
+    BUILD_INSTALLER_CMD=(cargo build --release -p playloader-install)
 else
-    echo "==> Building ytb_dl_tui + ytb_dl_tui_gui (cross target: $TARGET)"
-    cross build --release --target "$TARGET" -p ytb_dl_tui -p ytb-dl-tui-gui
+    echo "==> Building playloader-tui + playloader (cross target: $TARGET)"
+    cross build --release --target "$TARGET" -p playloader-tui -p playloader
     OUT_DIR="$TARGET_DIR/$TARGET/release"
     if [[ "$TARGET" == *windows* ]]; then
         EXE_SUFFIX=".exe"
     else
         EXE_SUFFIX=""
     fi
-    BUILD_INSTALLER_CMD=(cross build --release --target "$TARGET" -p ytb-dl-tui-install)
+    BUILD_INSTALLER_CMD=(cross build --release --target "$TARGET" -p playloader-install)
 fi
 
-TUI_BIN="$OUT_DIR/ytb_dl_tui$EXE_SUFFIX"
-GUI_BIN="$OUT_DIR/ytb_dl_tui_gui$EXE_SUFFIX"
-INSTALLER_BIN="$OUT_DIR/ytb-dl-tui-install$EXE_SUFFIX"
+TUI_BIN="$OUT_DIR/playloader-tui$EXE_SUFFIX"
+GUI_BIN="$OUT_DIR/playloader$EXE_SUFFIX"
+INSTALLER_BIN="$OUT_DIR/playloader-install$EXE_SUFFIX"
 
 for bin in "$TUI_BIN" "$GUI_BIN"; do
     if [[ ! -f "$bin" ]]; then
@@ -47,8 +47,8 @@ for bin in "$TUI_BIN" "$GUI_BIN"; do
 done
 
 mkdir -p installer/embed
-cp "$TUI_BIN" "installer/embed/ytb_dl_tui$EXE_SUFFIX"
-cp "$GUI_BIN" "installer/embed/ytb_dl_tui_gui$EXE_SUFFIX"
+cp "$TUI_BIN" "installer/embed/playloader-tui$EXE_SUFFIX"
+cp "$GUI_BIN" "installer/embed/playloader$EXE_SUFFIX"
 echo "==> Embedded $TUI_BIN and $GUI_BIN into installer/embed/"
 
 echo "==> Building installer"

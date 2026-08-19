@@ -1,16 +1,16 @@
 //! Message handling: mirrors the TUI's `App` methods in `app.rs`
 //! (`begin_fetch`, `start_downloads`, `on_download_event`, `save_settings`,
 //! ...) function-for-function, since the underlying business logic (all in
-//! `ytb_dl_tui_core`) doesn't change between frontends -- only how work gets
+//! `playloader_core`) doesn't change between frontends -- only how work gets
 //! kicked off (`Task` instead of `tokio::spawn` + a channel poll) and how
 //! results come back (a `Message` instead of a direct state mutation).
 
 use iced::Task;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
-use ytb_dl_tui_core::downloader::{self, BinaryPaths, DownloadEvent};
-use ytb_dl_tui_core::models::{self, DownloadItem, DownloadState, PlaylistInfo, Video};
-use ytb_dl_tui_core::ytdlp::{self, JsRuntime, YtDlp};
+use playloader_core::downloader::{self, BinaryPaths, DownloadEvent};
+use playloader_core::models::{self, DownloadItem, DownloadState, PlaylistInfo, Video};
+use playloader_core::ytdlp::{self, JsRuntime, YtDlp};
 
 use crate::message::Message;
 use crate::state::{Screen, State, StatusKind};
@@ -19,6 +19,7 @@ pub fn update(state: &mut State, message: Message) -> Task<Message> {
     match message {
         Message::ToolsChecked(status) => {
             state.binary_status = status;
+            state.tools_checked = true;
             if !state.binary_status.ready() {
                 state.set_status(
                     "yt-dlp runtime not found -- reinstall the app (see README)",
@@ -150,8 +151,16 @@ pub fn update(state: &mut State, message: Message) -> Task<Message> {
             apply_download_event(state, event);
             Task::none()
         }
-        Message::SelectQueueItem(index) => {
-            state.selected_queue_item = Some(index);
+        Message::PauseItem(index) => {
+            if let Some(handle) = &state.download_handle {
+                handle.pause_item(index);
+            }
+            Task::none()
+        }
+        Message::ResumeItem(index) => {
+            if let Some(handle) = &state.download_handle {
+                handle.resume_item(index);
+            }
             Task::none()
         }
         Message::CancelItem(index) => {
@@ -163,6 +172,12 @@ pub fn update(state: &mut State, message: Message) -> Task<Message> {
         Message::CancelAllPressed => {
             if let Some(handle) = &state.download_handle {
                 handle.cancel_all();
+            }
+            Task::none()
+        }
+        Message::ToggleItemDetails(index) => {
+            if !state.expanded_items.remove(&index) {
+                state.expanded_items.insert(index);
             }
             Task::none()
         }
@@ -178,14 +193,14 @@ pub fn update(state: &mut State, message: Message) -> Task<Message> {
             state.items.clear();
             state.download_handle = None;
             state.batch_done = false;
-            state.selected_queue_item = None;
+            state.expanded_items.clear();
             state.url_input.clear();
             Task::none()
         }
     }
 }
 
-async fn check_tools() -> ytb_dl_tui_core::ytdlp::BinaryStatus {
+async fn check_tools() -> playloader_core::ytdlp::BinaryStatus {
     ytdlp::check_binaries().await
 }
 
@@ -195,7 +210,7 @@ pub fn initial_task() -> Task<Message> {
 
 async fn fetch(
     url: String,
-    settings: ytb_dl_tui_core::config::Settings,
+    settings: playloader_core::config::Settings,
     ytdlp: YtDlp,
     js_runtime: Option<JsRuntime>,
 ) -> Result<PlaylistInfo, String> {
@@ -278,7 +293,7 @@ fn start_downloads(state: &mut State) -> Task<Message> {
     }
 
     state.items = videos.iter().cloned().map(DownloadItem::new).collect();
-    state.selected_queue_item = (!state.items.is_empty()).then_some(0);
+    state.expanded_items.clear();
     state.batch_done = false;
     let binaries = BinaryPaths {
         ytdlp,
@@ -293,29 +308,26 @@ fn start_downloads(state: &mut State) -> Task<Message> {
 }
 
 fn apply_download_event(state: &mut State, event: DownloadEvent) {
-    match event {
-        DownloadEvent::Started(i) => set_item_state(state, i, DownloadState::Starting),
-        DownloadEvent::Progress(i, p) => set_item_state(state, i, DownloadState::Downloading(p)),
-        DownloadEvent::PostProcessing(i) => set_item_state(state, i, DownloadState::PostProcessing),
+    let (index, new_state) = match event {
+        DownloadEvent::Started(i) => (i, DownloadState::Starting),
+        DownloadEvent::Progress(i, p) => (i, DownloadState::Downloading(p)),
+        DownloadEvent::PostProcessing(i) => (i, DownloadState::PostProcessing),
         DownloadEvent::Log(i, line) => {
             if let Some(item) = state.items.get_mut(i) {
                 item.push_log(line);
             }
+            return;
         }
-        DownloadEvent::Finished(i, Ok(())) => set_item_state(state, i, DownloadState::Done),
-        DownloadEvent::Finished(i, Err(msg)) => {
-            set_item_state(state, i, DownloadState::Failed(msg))
-        }
-        DownloadEvent::Skipped(i) => set_item_state(state, i, DownloadState::Skipped),
-        DownloadEvent::Cancelled(i) => set_item_state(state, i, DownloadState::Cancelled),
+        DownloadEvent::Finished(i, Ok(())) => (i, DownloadState::Done),
+        DownloadEvent::Finished(i, Err(msg)) => (i, DownloadState::Failed(msg)),
+        DownloadEvent::Skipped(i) => (i, DownloadState::Skipped),
+        DownloadEvent::Cancelled(i) => (i, DownloadState::Cancelled),
+        DownloadEvent::Paused(i) => (i, DownloadState::Paused),
+    };
+    if let Some(item) = state.items.get_mut(index) {
+        item.set_state(new_state);
     }
     if !state.items.is_empty() && state.items.iter().all(|i| i.state.is_terminal()) {
         state.batch_done = true;
-    }
-}
-
-fn set_item_state(state: &mut State, index: usize, new_state: DownloadState) {
-    if let Some(item) = state.items.get_mut(index) {
-        item.state = new_state;
     }
 }

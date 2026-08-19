@@ -10,9 +10,9 @@ use iced::widget::{
 };
 use iced::{Center, Element, Fill};
 
-use ytb_dl_tui_core::config::Settings;
-use ytb_dl_tui_core::models::{AudioFormat, MediaMode, VideoContainer, VideoQuality};
-use ytb_dl_tui_core::settings_fields::{FieldKind, SettingsField};
+use playloader_core::config::Settings;
+use playloader_core::models::{AudioFormat, MediaMode, VideoContainer, VideoQuality};
+use playloader_core::settings_fields::{FieldKind, SettingsField};
 
 use crate::message::Message;
 use crate::state::State;

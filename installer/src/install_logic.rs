@@ -82,8 +82,8 @@ pub fn run_install(components: Components, tx: UnboundedSender<InstallEvent>) ->
     let mut ok = true;
 
     if components.tui {
-        step(&tx, "ytb_dl_tui (terminal UI)");
-        let dest = install_dir.join(app_exe_filename("ytb_dl_tui"));
+        step(&tx, "Terminal version");
+        let dest = install_dir.join(app_exe_filename("playloader-tui"));
         match install_embedded(crate::TUI_BINARY, &dest) {
             Ok(()) => detail(&tx, format!("installed: {}", dest.display())),
             Err(e) => {
@@ -94,8 +94,8 @@ pub fn run_install(components: Components, tx: UnboundedSender<InstallEvent>) ->
     }
 
     if components.gui {
-        step(&tx, "ytb-dl-tui (desktop GUI)");
-        let dest = install_dir.join(app_exe_filename("ytb_dl_tui_gui"));
+        step(&tx, "Desktop app");
+        let dest = install_dir.join(app_exe_filename("playloader"));
         match install_embedded(crate::GUI_BINARY, &dest) {
             Ok(()) => detail(&tx, format!("installed: {}", dest.display())),
             Err(e) => {
@@ -161,7 +161,17 @@ pub fn run_install(components: Components, tx: UnboundedSender<InstallEvent>) ->
     let mut gui_shortcut_created = false;
     if components.gui {
         step(&tx, "Application shortcut");
-        let gui_exe = install_dir.join(app_exe_filename("ytb_dl_tui_gui"));
+        let gui_exe = install_dir.join(app_exe_filename("playloader"));
+        // Linux's `.desktop` entry needs an actual icon file to point at
+        // (unlike Windows, where the shortcut just points `IconFile` at the
+        // exe itself, which already has the icon baked in as a resource --
+        // see `build.rs`) -- so drop one next to the app first.
+        const ICON_PNG: &[u8] = include_bytes!("../../assets/icon-512.png");
+        if let Some(dir) = gui_exe.parent()
+            && let Err(e) = std::fs::write(dir.join("icon.png"), ICON_PNG)
+        {
+            warning(&tx, format!("could not write app icon: {e:#}"));
+        }
         match shortcut::create(&gui_exe) {
             Ok(location) => {
                 detail(&tx, format!("created: {}", location.display()));
@@ -245,26 +255,24 @@ fn ensure_ytdlp(install_dir: &Path, tx: &UnboundedSender<InstallEvent>) -> Resul
 }
 
 fn verify_python(python_path: &Path) -> bool {
-    Command::new(python_path)
-        .arg("--version")
+    let mut cmd = Command::new(python_path);
+    cmd.arg("--version")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+        .stderr(Stdio::null());
+    suppress_console_window(&mut cmd);
+    cmd.status().map(|s| s.success()).unwrap_or(false)
 }
 
 fn verify_ytdlp(python_path: &Path, src_dir: &Path) -> bool {
-    Command::new(python_path)
-        .env("PYTHONPATH", src_dir)
+    let mut cmd = Command::new(python_path);
+    cmd.env("PYTHONPATH", src_dir)
         .args(["-m", "yt_dlp", "--version"])
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+        .stderr(Stdio::null());
+    suppress_console_window(&mut cmd);
+    cmd.status().map(|s| s.success()).unwrap_or(false)
 }
 
 pub enum Status {
@@ -348,15 +356,29 @@ fn ensure_tool(tool: Tool, install_dir: &Path) -> Result<Status> {
 }
 
 fn verify_runs(path: &Path, tool: Tool) -> bool {
-    Command::new(path)
-        .args(tool.version_args())
+    let mut cmd = Command::new(path);
+    cmd.args(tool.version_args())
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+        .stderr(Stdio::null());
+    suppress_console_window(&mut cmd);
+    cmd.status().map(|s| s.success()).unwrap_or(false)
 }
+
+/// Without this, every version-check subprocess the installer runs pops up
+/// its own console window on Windows -- the wizard has no console of its
+/// own (see main.rs's windows_subsystem attribute), but Windows still
+/// creates one by default for a spawned console subprocess unless told not
+/// to. CREATE_NO_WINDOW (0x0800_0000) suppresses that.
+#[cfg(windows)]
+fn suppress_console_window(cmd: &mut Command) {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    cmd.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(windows))]
+fn suppress_console_window(_cmd: &mut Command) {}
 
 #[cfg(unix)]
 fn make_executable(path: &Path) -> Result<()> {

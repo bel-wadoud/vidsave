@@ -32,7 +32,13 @@ pub fn view(state: &State) -> Element<'_, Message> {
     .into()
 }
 
+/// The status bar always shows *something* concrete about what's going on --
+/// an explicit status message (e.g. an error) takes priority, but absent
+/// that it falls back to a plain description of the current screen/activity
+/// rather than a static app name, so the user is never left guessing
+/// whether the app is fetching, downloading, or just idle.
 fn status_bar(state: &State) -> Element<'_, Message> {
+    let dim = iced::Color::from_rgb8(0x77, 0x77, 0x77);
     let (message, color) = match &state.status {
         Some(status) => {
             let color = match status.kind {
@@ -41,13 +47,24 @@ fn status_bar(state: &State) -> Element<'_, Message> {
             };
             (status.text.clone(), color)
         }
-        None => (
-            "ytb-dl-tui".to_string(),
-            iced::Color::from_rgb8(0x77, 0x77, 0x77),
-        ),
+        None => (activity_text(state), dim),
     };
     container(text(message).size(13).color(color))
         .width(Length::Fill)
         .padding([6, 16])
         .into()
+}
+
+fn activity_text(state: &State) -> String {
+    if state.show_settings {
+        return "Settings".to_string();
+    }
+    match state.screen {
+        Screen::UrlInput if !state.tools_checked => "Starting up...".to_string(),
+        Screen::UrlInput if state.fetching => "Fetching playlist info...".to_string(),
+        Screen::UrlInput => "Ready".to_string(),
+        Screen::VideoList => "Choose videos, then start the download".to_string(),
+        Screen::Downloading if state.batch_done => "All downloads finished".to_string(),
+        Screen::Downloading => "Downloading...".to_string(),
+    }
 }

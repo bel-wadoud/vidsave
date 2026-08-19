@@ -5,10 +5,12 @@
 //! you were on, rather than a distinct screen of its own, and video
 //! selection/downloads are driven by clicks rather than a cursor.
 
-use ytb_dl_tui_core::config::Settings;
-use ytb_dl_tui_core::downloader::DownloadHandle;
-use ytb_dl_tui_core::models::{DownloadItem, PlaylistInfo};
-use ytb_dl_tui_core::ytdlp::BinaryStatus;
+use std::collections::HashSet;
+
+use playloader_core::config::Settings;
+use playloader_core::downloader::DownloadHandle;
+use playloader_core::models::{DownloadItem, PlaylistInfo};
+use playloader_core::ytdlp::BinaryStatus;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
@@ -31,6 +33,11 @@ pub struct StatusMessage {
 pub struct State {
     pub settings: Settings,
     pub binary_status: BinaryStatus,
+    /// Distinguishes "haven't checked yet" from "checked, and it's
+    /// genuinely missing" -- without this, the UI would flash a scary
+    /// "not found" error for the brief moment at startup before the real
+    /// check (an async Task) has had a chance to complete.
+    pub tools_checked: bool,
     pub screen: Screen,
     pub status: Option<StatusMessage>,
 
@@ -57,7 +64,10 @@ pub struct State {
     // -- Downloading --
     pub items: Vec<DownloadItem>,
     pub download_handle: Option<DownloadHandle>,
-    pub selected_queue_item: Option<usize>,
+    /// Which queue rows currently have their raw yt-dlp log expanded --
+    /// collapsed (just clean status text) by default, since a normal user
+    /// cares about progress, not yt-dlp's internal output.
+    pub expanded_items: HashSet<usize>,
     pub batch_done: bool,
 }
 
@@ -66,6 +76,7 @@ impl State {
         Self {
             settings,
             binary_status: BinaryStatus::default(),
+            tools_checked: false,
             screen: Screen::UrlInput,
             status: None,
             show_settings: false,
@@ -79,7 +90,7 @@ impl State {
             filter: String::new(),
             items: Vec::new(),
             download_handle: None,
-            selected_queue_item: None,
+            expanded_items: HashSet::new(),
             batch_done: false,
         }
     }

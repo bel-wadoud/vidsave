@@ -88,16 +88,16 @@ impl Default for Settings {
 fn default_output_dir() -> PathBuf {
     if let Some(user_dirs) = directories::UserDirs::new() {
         if let Some(video_dir) = user_dirs.video_dir() {
-            return video_dir.join("ytb-dl-tui");
+            return video_dir.join("playloader");
         }
-        return user_dirs.home_dir().join("Videos").join("ytb-dl-tui");
+        return user_dirs.home_dir().join("Videos").join("playloader");
     }
     PathBuf::from("./downloads")
 }
 
 impl Settings {
     fn project_dirs() -> Option<directories::ProjectDirs> {
-        directories::ProjectDirs::from("dev", "ytb-dl-tui", "ytb-dl-tui")
+        directories::ProjectDirs::from("dev", "playloader", "playloader")
     }
 
     pub fn config_path() -> Option<PathBuf> {
@@ -114,7 +114,7 @@ impl Settings {
     pub fn archive_path(&self) -> PathBuf {
         match Self::project_dirs() {
             Some(dirs) => dirs.data_dir().join("download_archive.txt"),
-            None => self.output_dir.join(".ytb-dl-tui-archive.txt"),
+            None => self.output_dir.join(".playloader-archive.txt"),
         }
     }
 

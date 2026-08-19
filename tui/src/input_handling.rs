@@ -7,7 +7,7 @@ use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use tui_input::Input;
 
 use crate::app::{App, FieldAction, MessageKind, Screen, SettingsOrigin, feed_input};
-use ytb_dl_tui_core::settings_fields::{FieldKind, SettingsField};
+use playloader_core::settings_fields::{FieldKind, SettingsField};
 
 pub fn handle_key(app: &mut App, key: KeyEvent) {
     if key.kind == KeyEventKind::Release {
@@ -184,6 +184,16 @@ fn handle_downloading(app: &mut App, key: KeyEvent) {
         KeyCode::Char('C') => {
             if let Some(dm) = &app.downloader {
                 dm.handle.cancel_all();
+            }
+        }
+        KeyCode::Char('p') => {
+            if let Some(dm) = &app.downloader {
+                dm.handle.pause_item(app.download_cursor);
+            }
+        }
+        KeyCode::Char('r') => {
+            if let Some(dm) = &app.downloader {
+                dm.handle.resume_item(app.download_cursor);
             }
         }
         KeyCode::Esc => app.screen = Screen::VideoList,

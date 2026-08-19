@@ -69,9 +69,25 @@ impl YtDlp {
         let mut cmd = Command::new(&self.python_path);
         cmd.env("PYTHONPATH", &self.src_dir);
         cmd.arg("-m").arg("yt_dlp");
+        suppress_console_window(&mut cmd);
         cmd
     }
 }
+
+/// Without this, every yt-dlp/ffmpeg invocation pops up its own console
+/// window on Windows -- Windows creates one by default for a console
+/// subprocess (python.exe here) even when its parent is a windowed GUI app
+/// with no console of its own. CREATE_NO_WINDOW (0x0800_0000) suppresses
+/// that; harmless (and unnecessary, but not applied) on the TUI, which
+/// already has its own console attached.
+#[cfg(windows)]
+fn suppress_console_window(cmd: &mut Command) {
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    cmd.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(windows))]
+fn suppress_console_window(_cmd: &mut Command) {}
 
 #[derive(Debug, Clone, Default)]
 pub struct BinaryStatus {
@@ -94,10 +110,10 @@ impl BinaryStatus {
 /// system `python3` and a source copy laid out differently -- see
 /// `Dockerfile`).
 fn resolve_ytdlp() -> Option<YtDlp> {
-    let python_path = std::env::var_os("YTB_DL_TUI_PYTHON")
+    let python_path = std::env::var_os("PLAYLOADER_PYTHON")
         .map(PathBuf::from)
         .or_else(bundled_python_path)?;
-    let src_dir = std::env::var_os("YTB_DL_TUI_YTDLP_SRC")
+    let src_dir = std::env::var_os("PLAYLOADER_YTDLP_SRC")
         .map(PathBuf::from)
         .or_else(bundled_ytdlp_src_dir)?;
 

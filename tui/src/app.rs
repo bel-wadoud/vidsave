@@ -10,11 +10,11 @@ use tui_input::backend::crossterm::EventHandler;
 
 use tokio::sync::mpsc;
 
-use ytb_dl_tui_core::config::Settings;
-use ytb_dl_tui_core::downloader::{self, DownloadEvent, DownloadHandle};
-use ytb_dl_tui_core::models::{DownloadItem, DownloadState, PlaylistInfo, Video};
-use ytb_dl_tui_core::settings_fields::{FieldKind, SettingsField};
-use ytb_dl_tui_core::ytdlp::BinaryStatus;
+use playloader_core::config::Settings;
+use playloader_core::downloader::{self, DownloadEvent, DownloadHandle};
+use playloader_core::models::{DownloadItem, DownloadState, PlaylistInfo, Video};
+use playloader_core::settings_fields::{FieldKind, SettingsField};
+use playloader_core::ytdlp::BinaryStatus;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
@@ -159,7 +159,7 @@ impl App {
         self.fetch_rx = Some(rx);
         self.screen = Screen::Fetching;
         tokio::spawn(async move {
-            let result = ytb_dl_tui_core::ytdlp::fetch_playlist(
+            let result = playloader_core::ytdlp::fetch_playlist(
                 &url,
                 &settings,
                 &ytdlp,
@@ -274,7 +274,7 @@ impl App {
         // batch land, not the persisted output-dir setting itself.
         let mut download_settings = self.settings.clone();
         if playlist.is_playlist {
-            let folder = ytb_dl_tui_core::models::sanitize_path_component(&playlist.title);
+            let folder = playloader_core::models::sanitize_path_component(&playlist.title);
             download_settings.output_dir = self.settings.output_dir.join(folder);
         }
 
@@ -302,7 +302,7 @@ impl App {
         self.download_cursor = 0;
         self.download_started_at = Some(Instant::now());
         self.batch_done = false;
-        let binaries = ytb_dl_tui_core::downloader::BinaryPaths {
+        let binaries = playloader_core::downloader::BinaryPaths {
             ytdlp,
             ffmpeg: self.binary_status.ffmpeg_path.clone(),
             js_runtime: self.binary_status.js_runtime.clone(),
@@ -313,49 +313,26 @@ impl App {
     }
 
     pub fn on_download_event(&mut self, event: DownloadEvent) {
-        match event {
-            DownloadEvent::Started(i) => {
-                if let Some(item) = self.items.get_mut(i) {
-                    item.state = DownloadState::Starting;
-                }
-            }
-            DownloadEvent::Progress(i, progress) => {
-                if let Some(item) = self.items.get_mut(i) {
-                    item.state = DownloadState::Downloading(progress);
-                }
-            }
-            DownloadEvent::PostProcessing(i) => {
-                if let Some(item) = self.items.get_mut(i) {
-                    item.state = DownloadState::PostProcessing;
-                }
-            }
+        let (index, state) = match event {
+            DownloadEvent::Started(i) => (i, DownloadState::Starting),
+            DownloadEvent::Progress(i, progress) => (i, DownloadState::Downloading(progress)),
+            DownloadEvent::PostProcessing(i) => (i, DownloadState::PostProcessing),
             DownloadEvent::Log(i, line) => {
                 if let Some(item) = self.items.get_mut(i) {
                     item.push_log(line);
                 }
+                return;
             }
-            DownloadEvent::Finished(i, Ok(())) => {
-                if let Some(item) = self.items.get_mut(i) {
-                    item.state = DownloadState::Done;
-                }
-            }
-            DownloadEvent::Finished(i, Err(msg)) => {
-                if let Some(item) = self.items.get_mut(i) {
-                    item.state = DownloadState::Failed(msg);
-                }
-            }
-            DownloadEvent::Skipped(i) => {
-                if let Some(item) = self.items.get_mut(i) {
-                    item.state = DownloadState::Skipped;
-                }
-            }
-            DownloadEvent::Cancelled(i) => {
-                if let Some(item) = self.items.get_mut(i) {
-                    item.state = DownloadState::Cancelled;
-                }
-            }
+            DownloadEvent::Finished(i, Ok(())) => (i, DownloadState::Done),
+            DownloadEvent::Finished(i, Err(msg)) => (i, DownloadState::Failed(msg)),
+            DownloadEvent::Skipped(i) => (i, DownloadState::Skipped),
+            DownloadEvent::Cancelled(i) => (i, DownloadState::Cancelled),
+            DownloadEvent::Paused(i) => (i, DownloadState::Paused),
+        };
+        if let Some(item) = self.items.get_mut(index) {
+            item.set_state(state);
         }
-        if self.items.iter().all(|i| i.state.is_terminal()) {
+        if !self.items.is_empty() && self.items.iter().all(|i| i.state.is_terminal()) {
             self.batch_done = true;
         }
     }

@@ -1,14 +1,22 @@
-//! ytb-dl-tui-install: a graphical setup wizard. Lets you choose the
-//! terminal UI, the desktop GUI, or both, then installs whichever you
-//! picked plus a bundled Python runtime + vendored yt-dlp (`../vendor/`),
-//! ffmpeg, and a JS runtime (deno) into one dedicated per-user folder
-//! (`%LOCALAPPDATA%\Programs\ytb-dl-tui` on Windows, `~/.local/share/
-//! ytb-dl-tui` on Linux -- no admin/root needed), registers that folder on
-//! PATH, and adds a Start Menu / app-launcher shortcut for the GUI.
+//! playloader-install: Playloader's graphical setup wizard. Lets you choose
+//! the terminal version, the desktop app, or both, then installs whichever
+//! you picked plus a bundled Python runtime + vendored yt-dlp
+//! (`../vendor/`), ffmpeg, and a JS runtime (deno) into one dedicated
+//! per-user folder (`%LOCALAPPDATA%\Programs\Playloader` on Windows,
+//! `~/.local/share/playloader` on Linux -- no admin/root needed), registers
+//! that folder on PATH, and adds a Start Menu / app-launcher shortcut for
+//! the desktop app.
 //!
 //! `--silent` skips the window entirely and installs both (or, combined
 //! with `--no-tui` / `--no-gui`, just one) non-interactively, printing the
 //! same progress the wizard would show -- for scripted/unattended installs.
+
+// No console window on Windows when double-clicked (the common case, and
+// the whole point of a graphical wizard). A --silent run launched directly
+// from an existing terminal still inherits and writes to that terminal's
+// console normally either way -- the subsystem bit only controls whether a
+// *new* console gets allocated when none is already attached.
+#![cfg_attr(windows, windows_subsystem = "windows")]
 
 mod download;
 mod extract;
@@ -30,8 +38,8 @@ use install_logic::{Components, InstallEvent, InstallOutcome};
 /// this crate build at all. Always embedded regardless of what the user
 /// ends up choosing on the Components page, same as any installer that
 /// bundles optional components inside one package.
-static TUI_BINARY: &[u8] = include_bytes!(env!("YTB_DL_TUI_TUI_BINARY_PATH"));
-static GUI_BINARY: &[u8] = include_bytes!(env!("YTB_DL_TUI_GUI_BINARY_PATH"));
+static TUI_BINARY: &[u8] = include_bytes!(env!("PLAYLOADER_TUI_BINARY_PATH"));
+static GUI_BINARY: &[u8] = include_bytes!(env!("PLAYLOADER_GUI_BINARY_PATH"));
 
 /// Our vendored copy of yt-dlp's Python source (see `../vendor/`), zipped
 /// up at compile time by `build.rs`.
@@ -53,15 +61,20 @@ pub fn main() -> iced::Result {
     }
 
     iced::application(State::default, update, view::view)
-        .title("ytb-dl-tui Setup")
+        .title("Playloader Setup")
         .theme(|_state: &State| Theme::Dark)
         .window(iced::window::Settings {
             size: iced::Size::new(560.0, 520.0),
             resizable: true,
+            icon: iced::window::icon::from_rgba(ICON_RGBA.to_vec(), 64, 64).ok(),
             ..Default::default()
         })
         .run()
 }
+
+/// Same window icon as the desktop app -- see its `main.rs` for why this is
+/// raw pixels rather than a PNG.
+static ICON_RGBA: &[u8] = include_bytes!("../../assets/icon-64.rgba");
 
 /// `blocking_recv` (rather than needing any async runtime at all here) is
 /// exactly what it's for: bridging a channel fed from synchronous code
@@ -159,9 +172,9 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         Message::LaunchGuiPressed => {
             if let Some(outcome) = &state.outcome {
                 let exe = outcome.install_dir.join(if cfg!(windows) {
-                    "ytb_dl_tui_gui.exe"
+                    "playloader.exe"
                 } else {
-                    "ytb_dl_tui_gui"
+                    "playloader"
                 });
                 let _ = std::process::Command::new(exe).spawn();
             }

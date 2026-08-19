@@ -28,7 +28,7 @@ RUN $CURL -o deno.zip \
     && chmod +x deno \
     && rm deno.zip
 
-# ---- builder: compile ytb_dl_tui from source -------------------------------
+# ---- builder: compile playloader-tui from source -------------------------------
 # The whole repo, not just tui/ + core/: this is a Cargo workspace, so Cargo
 # needs every member's Cargo.toml (gui/, installer/) present to resolve the
 # workspace graph even though -p only actually builds and compiles the one
@@ -39,30 +39,30 @@ WORKDIR /app
 COPY . .
 # Hard cap so a stalled crates.io fetch fails loudly instead of hanging the
 # build indefinitely.
-RUN timeout 1800 cargo build --release --locked -p ytb_dl_tui
+RUN timeout 1800 cargo build --release --locked -p playloader-tui
 
 # ---- runtime: minimal image with just what's needed to run it -------------
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates python3 \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --create-home --uid 1000 --shell /bin/bash ytbdl
+    && useradd --create-home --uid 1000 --shell /bin/bash playloader
 
 COPY --from=tools /tools/ffmpeg /tools/ffprobe /tools/deno /usr/local/bin/
-COPY --from=builder /app/target/release/ytb_dl_tui /usr/local/bin/ytb_dl_tui
+COPY --from=builder /app/target/release/playloader-tui /usr/local/bin/playloader-tui
 # Our vendored copy of yt-dlp's source (see vendor/update.sh) -- run via the
 # system python3 above instead of downloading yt-dlp's own release binary.
-COPY vendor/yt_dlp /usr/local/lib/ytb-dl-tui/yt_dlp_src/yt_dlp
+COPY vendor/yt_dlp /usr/local/lib/playloader/yt_dlp_src/yt_dlp
 
-RUN mkdir -p /downloads && chown ytbdl:ytbdl /downloads
+RUN mkdir -p /downloads && chown playloader:playloader /downloads
 
-USER ytbdl
+USER playloader
 WORKDIR /downloads
 ENV TERM=xterm-256color
-ENV YTB_DL_TUI_PYTHON=/usr/bin/python3
-ENV YTB_DL_TUI_YTDLP_SRC=/usr/local/lib/ytb-dl-tui/yt_dlp_src
+ENV PLAYLOADER_PYTHON=/usr/bin/python3
+ENV PLAYLOADER_YTDLP_SRC=/usr/local/lib/playloader/yt_dlp_src
 
 # `--output-dir /downloads` is always applied first; passing your own
 # `--output-dir` (or a URL, or any other flag) after the image name still
 # works normally -- clap takes the last occurrence of a repeated option.
-ENTRYPOINT ["ytb_dl_tui", "--output-dir", "/downloads"]
+ENTRYPOINT ["playloader-tui", "--output-dir", "/downloads"]

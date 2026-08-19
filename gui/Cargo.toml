@@ -1,5 +1,5 @@
 [package]
-name = "ytb-dl-tui-gui"
+name = "playloader"
 version.workspace = true
 edition.workspace = true
 description = "Desktop GUI for downloading YouTube playlists and videos via yt-dlp"
@@ -8,7 +8,7 @@ repository.workspace = true
 readme = "../README.md"
 
 [[bin]]
-name = "ytb_dl_tui_gui"
+name = "playloader"
 path = "src/main.rs"
 
 [dependencies]
@@ -21,4 +21,7 @@ clap = { version = "4.6.4", features = ["derive"] }
 iced = { version = "0.14.0", features = ["tokio"] }
 tokio = { version = "1.53.1", features = ["full"] }
 tokio-stream = "0.1.17"
-ytb-dl-tui-core = { path = "../core" }
+playloader-core = { path = "../core" }
+
+[target."cfg(windows)".build-dependencies]
+winresource = { version = "0.1.31", default-features = false }

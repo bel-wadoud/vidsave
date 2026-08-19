@@ -106,8 +106,8 @@ pub fn ensure_on_path(dir: &Path) -> Result<PathAction> {
         .map(std::path::PathBuf::from)
         .ok_or_else(|| anyhow::anyhow!("$HOME is not set"))?;
 
-    const MARKER_START: &str = "# >>> ytb-dl-tui PATH >>>";
-    const MARKER_END: &str = "# <<< ytb-dl-tui PATH <<<";
+    const MARKER_START: &str = "# >>> Playloader PATH >>>";
+    const MARKER_END: &str = "# <<< Playloader PATH <<<";
     let block = format!(
         "\n{MARKER_START}\nexport PATH=\"{}:$PATH\"\n{MARKER_END}\n",
         dir.display()

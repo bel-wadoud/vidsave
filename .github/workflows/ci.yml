@@ -42,19 +42,19 @@ jobs:
       # installer/build.rs refuses to compile without matching TUI + GUI
       # binaries already embedded, so build both first -- see
       # build-installer.sh, which does the same thing for local builds.
-      - name: build ytb_dl_tui + ytb_dl_tui_gui (release)
-        run: cargo build --release -p ytb_dl_tui -p ytb-dl-tui-gui
+      - name: build playloader-tui + playloader (release)
+        run: cargo build --release -p playloader-tui -p playloader
 
       - name: embed app binaries for installer build
         shell: bash
         run: |
           mkdir -p installer/embed
           if [ "$RUNNER_OS" = "Windows" ]; then
-            cp target/release/ytb_dl_tui.exe installer/embed/ytb_dl_tui.exe
-            cp target/release/ytb_dl_tui_gui.exe installer/embed/ytb_dl_tui_gui.exe
+            cp target/release/playloader-tui.exe installer/embed/playloader-tui.exe
+            cp target/release/playloader.exe installer/embed/playloader.exe
           else
-            cp target/release/ytb_dl_tui installer/embed/ytb_dl_tui
-            cp target/release/ytb_dl_tui_gui installer/embed/ytb_dl_tui_gui
+            cp target/release/playloader-tui installer/embed/playloader-tui
+            cp target/release/playloader installer/embed/playloader
           fi
 
       - name: clippy (workspace)
@@ -64,4 +64,4 @@ jobs:
         run: cargo test --workspace
 
       - name: build installer (release)
-        run: cargo build --release -p ytb-dl-tui-install
+        run: cargo build --release -p playloader-install

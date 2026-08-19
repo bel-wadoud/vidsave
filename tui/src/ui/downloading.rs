@@ -5,7 +5,7 @@ use ratatui::text::Span;
 use ratatui::widgets::{Block, Borders, Gauge, List, ListItem, ListState, Paragraph, Wrap};
 
 use crate::app::App;
-use ytb_dl_tui_core::models::{DownloadItem, DownloadState};
+use playloader_core::models::{DownloadItem, DownloadState};
 
 pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
     let chunks = Layout::vertical([
@@ -25,7 +25,7 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
     let hints = if app.batch_done {
         "All downloads finished   Esc back to list   q quit"
     } else {
-        "Up/Down select   c cancel item   C cancel all   Esc back (keeps running)   q quit"
+        "Up/Down select   p pause   r resume   c cancel item   C cancel all   Esc back (keeps running)   q quit"
     };
     frame.render_widget(
         Paragraph::new(hints).block(Block::default().borders(Borders::ALL)),
@@ -123,6 +123,7 @@ fn state_style(state: &DownloadState) -> (&'static str, Color) {
         DownloadState::Starting => (">", Color::Yellow),
         DownloadState::Downloading(_) => ("v", Color::Yellow),
         DownloadState::PostProcessing => ("~", Color::Yellow),
+        DownloadState::Paused => ("=", Color::Cyan),
         DownloadState::Done => ("+", Color::Green),
         DownloadState::Skipped => ("-", Color::Blue),
         DownloadState::Cancelled => ("x", Color::DarkGray),
@@ -139,6 +140,13 @@ fn overall_percent(items: &[DownloadItem]) -> f64 {
         .map(|item| match &item.state {
             DownloadState::Queued | DownloadState::Starting => 0.0,
             DownloadState::Downloading(p) => (p.percent as f64 / 100.0).clamp(0.0, 1.0),
+            // Keep contributing whatever progress it had rather than
+            // dropping back to 0 just because it's paused, not downloading.
+            DownloadState::Paused => item
+                .last_progress
+                .as_ref()
+                .map(|p| (p.percent as f64 / 100.0).clamp(0.0, 1.0))
+                .unwrap_or(0.0),
             DownloadState::PostProcessing => 0.95,
             DownloadState::Done
             | DownloadState::Skipped

@@ -19,10 +19,10 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::app::{App, DownloadSession};
 use crate::cli::Cli;
-use ytb_dl_tui_core::config::Settings;
-use ytb_dl_tui_core::downloader::DownloadEvent;
-use ytb_dl_tui_core::models::PlaylistInfo;
-use ytb_dl_tui_core::ytdlp;
+use playloader_core::config::Settings;
+use playloader_core::downloader::DownloadEvent;
+use playloader_core::models::PlaylistInfo;
+use playloader_core::ytdlp;
 
 type Term = Terminal<CrosstermBackend<io::Stdout>>;
 

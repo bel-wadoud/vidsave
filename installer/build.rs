@@ -1,6 +1,6 @@
 //! Two build-time guards, both feeding `include_bytes!` in `src/main.rs`:
 //!
-//! 1. Makes sure a freshly built `ytb_dl_tui` binary for the target platform
+//! 1. Makes sure a freshly built `playloader-tui` binary for the target platform
 //!    is sitting in `embed/` before compiling. Run the app's own build (for
 //!    the same target) first -- see `../build-installer.sh`, which does
 //!    exactly that.
@@ -8,6 +8,9 @@
 //!    -- see `../vendor/update.sh`) into `$OUT_DIR/yt_dlp_src.zip`, which the
 //!    installer extracts into the install directory at install time instead
 //!    of downloading yt-dlp from anywhere.
+//!
+//! Windows only, additionally: embeds the app icon (`../assets/icon.ico`)
+//! as a resource on the built `.exe`, same as `../gui/build.rs`.
 
 use std::fs::File;
 use std::io::{Read, Write};
@@ -16,16 +19,29 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 
 fn main() {
-    if let Err(e) = check_embedded_app_binary("ytb_dl_tui", "YTB_DL_TUI_TUI_BINARY_PATH") {
+    if let Err(e) = check_embedded_app_binary("playloader-tui", "PLAYLOADER_TUI_BINARY_PATH") {
         panic!("\n\n{e:#}\n\n");
     }
-    if let Err(e) = check_embedded_app_binary("ytb_dl_tui_gui", "YTB_DL_TUI_GUI_BINARY_PATH") {
+    if let Err(e) = check_embedded_app_binary("playloader", "PLAYLOADER_GUI_BINARY_PATH") {
         panic!("\n\n{e:#}\n\n");
     }
     if let Err(e) = zip_vendored_ytdlp() {
         panic!("\n\ninstaller build.rs: failed to package vendored yt-dlp: {e:#}\n\n");
     }
+    embed_windows_icon();
 }
+
+#[cfg(windows)]
+fn embed_windows_icon() {
+    let mut res = winresource::WindowsResource::new();
+    res.set_icon("../assets/icon.ico");
+    if let Err(e) = res.compile() {
+        panic!("\n\nfailed to embed the Windows .exe icon: {e:#}\n\n");
+    }
+}
+
+#[cfg(not(windows))]
+fn embed_windows_icon() {}
 
 /// Makes sure a freshly built `{stem}` binary for the target platform is
 /// sitting in `embed/`, and exposes its path via `env_var` so `main.rs` can

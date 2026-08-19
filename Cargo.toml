@@ -3,10 +3,10 @@ resolver = "2"
 members = ["core", "tui", "gui", "installer"]
 
 [workspace.package]
-version = "2.1.0"
+version = "2.1.5"
 edition = "2024"
 license-file = "LICENSE"
-repository = "https://github.com/bel-wadoud/ytb-dl-tui"
+repository = "https://github.com/bel-wadoud/playloader"
 
 # `[profile.*]` only takes effect at the workspace root -- applies to every
 # member. No crate here relies on unwinding to recover from a panic (the

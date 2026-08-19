@@ -9,8 +9,8 @@ name: Release
 #
 # Asset names are stable across releases (no version in the filename) so the
 # README's "latest download" links never need updating:
-#   ytb-dl-tui-install-linux-x86_64          ytb-dl-tui-install-windows-x86_64.exe
-#   ytb-dl-tui-portable-linux-x86_64.zip     ytb-dl-tui-portable-windows-x86_64.zip
+#   playloader-install-linux-x86_64          playloader-install-windows-x86_64.exe
+#   playloader-portable-linux-x86_64.zip     playloader-portable-windows-x86_64.zip
 
 on:
   push:
@@ -31,13 +31,13 @@ jobs:
           - os: ubuntu-latest
             name: linux-x86_64
             exe_suffix: ""
-            installer_asset: ytb-dl-tui-install-linux-x86_64
-            portable_asset: ytb-dl-tui-portable-linux-x86_64.zip
+            installer_asset: playloader-install-linux-x86_64
+            portable_asset: playloader-portable-linux-x86_64.zip
           - os: windows-latest
             name: windows-x86_64
             exe_suffix: ".exe"
-            installer_asset: ytb-dl-tui-install-windows-x86_64.exe
-            portable_asset: ytb-dl-tui-portable-windows-x86_64.zip
+            installer_asset: playloader-install-windows-x86_64.exe
+            portable_asset: playloader-portable-windows-x86_64.zip
     steps:
       - uses: actions/checkout@v4
 
@@ -53,24 +53,24 @@ jobs:
         with:
           workspaces: . -> target
 
-      - name: build ytb_dl_tui + ytb_dl_tui_gui
-        run: cargo build --release -p ytb_dl_tui -p ytb-dl-tui-gui
+      - name: build playloader-tui + playloader
+        run: cargo build --release -p playloader-tui -p playloader
 
       - name: embed app binaries for installer build
         shell: bash
         run: |
           mkdir -p installer/embed
-          cp "target/release/ytb_dl_tui${{ matrix.exe_suffix }}" "installer/embed/ytb_dl_tui${{ matrix.exe_suffix }}"
-          cp "target/release/ytb_dl_tui_gui${{ matrix.exe_suffix }}" "installer/embed/ytb_dl_tui_gui${{ matrix.exe_suffix }}"
+          cp "target/release/playloader-tui${{ matrix.exe_suffix }}" "installer/embed/playloader-tui${{ matrix.exe_suffix }}"
+          cp "target/release/playloader${{ matrix.exe_suffix }}" "installer/embed/playloader${{ matrix.exe_suffix }}"
 
       - name: build installer
-        run: cargo build --release -p ytb-dl-tui-install
+        run: cargo build --release -p playloader-install
 
       - name: stage installer release asset
         shell: bash
         run: |
           mkdir -p dist
-          cp "target/release/ytb-dl-tui-install${{ matrix.exe_suffix }}" "dist/${{ matrix.installer_asset }}"
+          cp "target/release/playloader-install${{ matrix.exe_suffix }}" "dist/${{ matrix.installer_asset }}"
 
       # Runs the installer we just built into a scratch, redirected install
       # location (rather than hand-duplicating python_runtime.rs's download
@@ -84,17 +84,17 @@ jobs:
           scratch="$RUNNER_TEMP/portable_home"
           rm -rf "$scratch"
           mkdir -p "$scratch"
-          installer="target/release/ytb-dl-tui-install${{ matrix.exe_suffix }}"
+          installer="target/release/playloader-install${{ matrix.exe_suffix }}"
           # --silent: a real setup wizard window needs someone there to
           # click through it, which nothing is in this step -- runs the
           # exact same install non-interactively instead. < /dev/null out of
           # caution even so, since it's still a subprocess in a CI step.
           if [[ "${{ matrix.os }}" == windows-latest ]]; then
             LOCALAPPDATA="$scratch" "$installer" --silent < /dev/null
-            bundle_dir="$scratch/Programs/ytb-dl-tui"
+            bundle_dir="$scratch/Programs/Playloader"
           else
             HOME="$scratch" "$installer" --silent < /dev/null
-            bundle_dir="$scratch/.local/share/ytb-dl-tui"
+            bundle_dir="$scratch/.local/share/playloader"
           fi
           dist_zip="$(pwd)/dist/${{ matrix.portable_asset }}"
           py=python3; command -v python3 >/dev/null || py=python
@@ -138,7 +138,7 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
-          name: ytb-dl-tui ${{ github.ref_name }}
+          name: Playloader ${{ github.ref_name }}
           body: |
             ${{ steps.changelog.outputs.notes }}
 
