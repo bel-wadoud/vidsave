@@ -1,5 +1,5 @@
-//! Playloader's desktop GUI frontend. Shares every bit of config/download/
-//! yt-dlp logic with the terminal version via `playloader_core` (see
+//! VidSave's desktop GUI frontend. Shares every bit of config/download/
+//! yt-dlp logic with the terminal version via `vidsave_core` (see
 //! `../core`) -- only how the UI is drawn and driven differs.
 
 // No console window on Windows: this is a windowed app, not a terminal one
@@ -17,8 +17,8 @@ use iced::{Task, Theme};
 
 use cli::Cli;
 use message::Message;
-use playloader_core::config::Settings;
 use state::State;
+use vidsave_core::config::Settings;
 
 /// Raw 64x64 RGBA pixels for the window/taskbar icon (see `../../assets/`)
 /// -- embedded straight as raw pixels rather than a PNG so setting it
@@ -29,7 +29,7 @@ static ICON_RGBA: &[u8] = include_bytes!("../../assets/icon-64.rgba");
 
 pub fn main() -> iced::Result {
     iced::application(new, update::update, view::view)
-        .title("Playloader")
+        .title("VidSave")
         .theme(|_state: &State| Theme::Dark)
         .window(iced::window::Settings {
             size: iced::Size::new(1000.0, 700.0),

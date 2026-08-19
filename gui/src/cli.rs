@@ -8,7 +8,7 @@ use clap::Parser;
 
 #[derive(Debug, Parser)]
 #[command(
-    name = "playloader",
+    name = "vidsave",
     version,
     about = "Desktop GUI for downloading YouTube playlists and videos via yt-dlp"
 )]

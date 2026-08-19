@@ -5,7 +5,7 @@ use ratatui::text::Span;
 use ratatui::widgets::{Block, Borders, Gauge, List, ListItem, ListState, Paragraph, Wrap};
 
 use crate::app::App;
-use playloader_core::models::{DownloadItem, DownloadState};
+use vidsave_core::models::{DownloadItem, DownloadState};
 
 pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
     let chunks = Layout::vertical([

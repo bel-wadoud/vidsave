@@ -22,9 +22,9 @@ pub fn view(state: &State) -> Element<'_, Message> {
 
 fn welcome<'a>() -> Element<'a, Message> {
     column![
-        text("Playloader Setup").size(28),
+        text("VidSave Setup").size(28),
         text(
-            "This sets up Playloader for downloading YouTube playlists and \
+            "This sets up VidSave for downloading YouTube playlists and \
              videos, plus everything it needs -- no admin rights required, \
              installed just for you."
         )
@@ -115,7 +115,7 @@ fn finish(state: &State) -> Element<'_, Message> {
     };
 
     let headline = if outcome.success {
-        text("Done -- Playloader is installed.")
+        text("Done -- VidSave is installed.")
             .size(22)
             .color(ok_color())
     } else {
@@ -127,13 +127,13 @@ fn finish(state: &State) -> Element<'_, Message> {
     let mut notes: Vec<Element<'_, Message>> = Vec::new();
     if state.install_tui && outcome.needs_new_terminal {
         notes.push(
-            text("Open a NEW terminal window and run:  playloader-tui")
+            text("Open a NEW terminal window and run:  vidsave-tui")
                 .size(13)
                 .into(),
         );
     } else if state.install_tui {
         notes.push(
-            text("Run it from any terminal:  playloader-tui")
+            text("Run it from any terminal:  vidsave-tui")
                 .size(13)
                 .into(),
         );
@@ -149,7 +149,7 @@ fn finish(state: &State) -> Element<'_, Message> {
     let mut actions = row![].spacing(10).align_y(Center);
     if state.install_gui && outcome.success {
         actions = actions.push(
-            button(text("Launch Playloader").size(14))
+            button(text("Launch VidSave").size(14))
                 .style(button::primary)
                 .padding([10, 20])
                 .on_press(Message::LaunchGuiPressed),

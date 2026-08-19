@@ -19,10 +19,10 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::app::{App, DownloadSession};
 use crate::cli::Cli;
-use playloader_core::config::Settings;
-use playloader_core::downloader::DownloadEvent;
-use playloader_core::models::PlaylistInfo;
-use playloader_core::ytdlp;
+use vidsave_core::config::Settings;
+use vidsave_core::downloader::DownloadEvent;
+use vidsave_core::models::PlaylistInfo;
+use vidsave_core::ytdlp;
 
 type Term = Terminal<CrosstermBackend<io::Stdout>>;
 

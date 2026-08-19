@@ -5,7 +5,7 @@ use ratatui::text::Span;
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
 
 use crate::app::App;
-use playloader_core::settings_fields::SettingsField;
+use vidsave_core::settings_fields::SettingsField;
 
 enum Row {
     Header(&'static str),

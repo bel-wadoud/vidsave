@@ -1,13 +1,13 @@
 [package]
-name = "playloader-install"
+name = "vidsave-install"
 version.workspace = true
 edition.workspace = true
-description = "Self-contained installer for Playloader: a setup wizard letting you pick the desktop app, the terminal version, or both, plus their bundled Python runtime + vendored yt-dlp, ffmpeg, and deno"
+description = "Self-contained installer for VidSave: a setup wizard letting you pick the desktop app, the terminal version, or both, plus their bundled Python runtime + vendored yt-dlp, ffmpeg, and deno"
 license-file.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "playloader-install"
+name = "vidsave-install"
 path = "src/main.rs"
 
 [dependencies]

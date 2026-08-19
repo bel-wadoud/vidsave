@@ -10,9 +10,9 @@ use iced::widget::{
 };
 use iced::{Center, Element, Fill};
 
-use playloader_core::config::Settings;
-use playloader_core::models::{AudioFormat, MediaMode, VideoContainer, VideoQuality};
-use playloader_core::settings_fields::{FieldKind, SettingsField};
+use vidsave_core::config::Settings;
+use vidsave_core::models::{AudioFormat, MediaMode, VideoContainer, VideoQuality};
+use vidsave_core::settings_fields::{FieldKind, SettingsField};
 
 use crate::message::Message;
 use crate::state::State;

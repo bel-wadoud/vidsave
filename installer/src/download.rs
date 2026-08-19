@@ -13,7 +13,7 @@ const MAX_DOWNLOAD_SIZE: u64 = 300 * 1024 * 1024;
 
 pub fn fetch(url: &str) -> Result<Vec<u8>> {
     let mut response = ureq::get(url)
-        .header("User-Agent", "playloader-install")
+        .header("User-Agent", "vidsave-install")
         .call()
         .with_context(|| format!("requesting {url}"))?;
 

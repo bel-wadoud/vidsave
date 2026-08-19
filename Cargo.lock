@@ -3051,65 +3051,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
-name = "playloader"
-version = "2.1.5"
-dependencies = [
- "anyhow",
- "clap",
- "iced",
- "playloader-core",
- "tokio",
- "tokio-stream",
- "winresource",
-]
-
-[[package]]
-name = "playloader-core"
-version = "2.1.5"
-dependencies = [
- "anyhow",
- "directories",
- "serde",
- "serde_json",
- "tokio",
- "tokio-util",
- "toml",
- "which",
-]
-
-[[package]]
-name = "playloader-install"
-version = "2.1.5"
-dependencies = [
- "anyhow",
- "flate2",
- "iced",
- "lzma-rs",
- "tar",
- "tokio",
- "tokio-stream",
- "ureq",
- "which",
- "windows-sys 0.61.2",
- "winreg",
- "winresource",
- "zip",
-]
-
-[[package]]
-name = "playloader-tui"
-version = "2.1.5"
-dependencies = [
- "anyhow",
- "clap",
- "crossterm",
- "playloader-core",
- "ratatui",
- "tokio",
- "tui-input",
-]
-
-[[package]]
 name = "polling"
 version = "3.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4517,6 +4458,65 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "vidsave"
+version = "2.1.5"
+dependencies = [
+ "anyhow",
+ "clap",
+ "iced",
+ "tokio",
+ "tokio-stream",
+ "vidsave-core",
+ "winresource",
+]
+
+[[package]]
+name = "vidsave-core"
+version = "2.1.5"
+dependencies = [
+ "anyhow",
+ "directories",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "toml",
+ "which",
+]
+
+[[package]]
+name = "vidsave-install"
+version = "2.1.5"
+dependencies = [
+ "anyhow",
+ "flate2",
+ "iced",
+ "lzma-rs",
+ "tar",
+ "tokio",
+ "tokio-stream",
+ "ureq",
+ "which",
+ "windows-sys 0.61.2",
+ "winreg",
+ "winresource",
+ "zip",
+]
+
+[[package]]
+name = "vidsave-tui"
+version = "2.1.5"
+dependencies = [
+ "anyhow",
+ "clap",
+ "crossterm",
+ "ratatui",
+ "tokio",
+ "tui-input",
+ "vidsave-core",
+]
 
 [[package]]
 name = "vtparse"

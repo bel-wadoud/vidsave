@@ -28,7 +28,7 @@ RUN $CURL -o deno.zip \
     && chmod +x deno \
     && rm deno.zip
 
-# ---- builder: compile playloader-tui from source -------------------------------
+# ---- builder: compile vidsave-tui from source -------------------------------
 # The whole repo, not just tui/ + core/: this is a Cargo workspace, so Cargo
 # needs every member's Cargo.toml (gui/, installer/) present to resolve the
 # workspace graph even though -p only actually builds and compiles the one
@@ -39,30 +39,30 @@ WORKDIR /app
 COPY . .
 # Hard cap so a stalled crates.io fetch fails loudly instead of hanging the
 # build indefinitely.
-RUN timeout 1800 cargo build --release --locked -p playloader-tui
+RUN timeout 1800 cargo build --release --locked -p vidsave-tui
 
 # ---- runtime: minimal image with just what's needed to run it -------------
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates python3 \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --create-home --uid 1000 --shell /bin/bash playloader
+    && useradd --create-home --uid 1000 --shell /bin/bash vidsave
 
 COPY --from=tools /tools/ffmpeg /tools/ffprobe /tools/deno /usr/local/bin/
-COPY --from=builder /app/target/release/playloader-tui /usr/local/bin/playloader-tui
+COPY --from=builder /app/target/release/vidsave-tui /usr/local/bin/vidsave-tui
 # Our vendored copy of yt-dlp's source (see vendor/update.sh) -- run via the
 # system python3 above instead of downloading yt-dlp's own release binary.
-COPY vendor/yt_dlp /usr/local/lib/playloader/yt_dlp_src/yt_dlp
+COPY vendor/yt_dlp /usr/local/lib/vidsave/yt_dlp_src/yt_dlp
 
-RUN mkdir -p /downloads && chown playloader:playloader /downloads
+RUN mkdir -p /downloads && chown vidsave:vidsave /downloads
 
-USER playloader
+USER vidsave
 WORKDIR /downloads
 ENV TERM=xterm-256color
-ENV PLAYLOADER_PYTHON=/usr/bin/python3
-ENV PLAYLOADER_YTDLP_SRC=/usr/local/lib/playloader/yt_dlp_src
+ENV VIDSAVE_PYTHON=/usr/bin/python3
+ENV VIDSAVE_YTDLP_SRC=/usr/local/lib/vidsave/yt_dlp_src
 
 # `--output-dir /downloads` is always applied first; passing your own
 # `--output-dir` (or a URL, or any other flag) after the image name still
 # works normally -- clap takes the last occurrence of a repeated option.
-ENTRYPOINT ["playloader-tui", "--output-dir", "/downloads"]
+ENTRYPOINT ["vidsave-tui", "--output-dir", "/downloads"]

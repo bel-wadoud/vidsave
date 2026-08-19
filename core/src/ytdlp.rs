@@ -110,10 +110,10 @@ impl BinaryStatus {
 /// system `python3` and a source copy laid out differently -- see
 /// `Dockerfile`).
 fn resolve_ytdlp() -> Option<YtDlp> {
-    let python_path = std::env::var_os("PLAYLOADER_PYTHON")
+    let python_path = std::env::var_os("VIDSAVE_PYTHON")
         .map(PathBuf::from)
         .or_else(bundled_python_path)?;
-    let src_dir = std::env::var_os("PLAYLOADER_YTDLP_SRC")
+    let src_dir = std::env::var_os("VIDSAVE_YTDLP_SRC")
         .map(PathBuf::from)
         .or_else(bundled_ytdlp_src_dir)?;
 

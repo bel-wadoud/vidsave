@@ -83,7 +83,7 @@ pub fn run_install(components: Components, tx: UnboundedSender<InstallEvent>) ->
 
     if components.tui {
         step(&tx, "Terminal version");
-        let dest = install_dir.join(app_exe_filename("playloader-tui"));
+        let dest = install_dir.join(app_exe_filename("vidsave-tui"));
         match install_embedded(crate::TUI_BINARY, &dest) {
             Ok(()) => detail(&tx, format!("installed: {}", dest.display())),
             Err(e) => {
@@ -95,7 +95,7 @@ pub fn run_install(components: Components, tx: UnboundedSender<InstallEvent>) ->
 
     if components.gui {
         step(&tx, "Desktop app");
-        let dest = install_dir.join(app_exe_filename("playloader"));
+        let dest = install_dir.join(app_exe_filename("vidsave"));
         match install_embedded(crate::GUI_BINARY, &dest) {
             Ok(()) => detail(&tx, format!("installed: {}", dest.display())),
             Err(e) => {
@@ -161,7 +161,7 @@ pub fn run_install(components: Components, tx: UnboundedSender<InstallEvent>) ->
     let mut gui_shortcut_created = false;
     if components.gui {
         step(&tx, "Application shortcut");
-        let gui_exe = install_dir.join(app_exe_filename("playloader"));
+        let gui_exe = install_dir.join(app_exe_filename("vidsave"));
         // Linux's `.desktop` entry needs an actual icon file to point at
         // (unlike Windows, where the shortcut just points `IconFile` at the
         // exe itself, which already has the icon baked in as a resource --

@@ -1,16 +1,16 @@
 //! Message handling: mirrors the TUI's `App` methods in `app.rs`
 //! (`begin_fetch`, `start_downloads`, `on_download_event`, `save_settings`,
 //! ...) function-for-function, since the underlying business logic (all in
-//! `playloader_core`) doesn't change between frontends -- only how work gets
+//! `vidsave_core`) doesn't change between frontends -- only how work gets
 //! kicked off (`Task` instead of `tokio::spawn` + a channel poll) and how
 //! results come back (a `Message` instead of a direct state mutation).
 
 use iced::Task;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
-use playloader_core::downloader::{self, BinaryPaths, DownloadEvent};
-use playloader_core::models::{self, DownloadItem, DownloadState, PlaylistInfo, Video};
-use playloader_core::ytdlp::{self, JsRuntime, YtDlp};
+use vidsave_core::downloader::{self, BinaryPaths, DownloadEvent};
+use vidsave_core::models::{self, DownloadItem, DownloadState, PlaylistInfo, Video};
+use vidsave_core::ytdlp::{self, JsRuntime, YtDlp};
 
 use crate::message::Message;
 use crate::state::{Screen, State, StatusKind};
@@ -200,7 +200,7 @@ pub fn update(state: &mut State, message: Message) -> Task<Message> {
     }
 }
 
-async fn check_tools() -> playloader_core::ytdlp::BinaryStatus {
+async fn check_tools() -> vidsave_core::ytdlp::BinaryStatus {
     ytdlp::check_binaries().await
 }
 
@@ -210,7 +210,7 @@ pub fn initial_task() -> Task<Message> {
 
 async fn fetch(
     url: String,
-    settings: playloader_core::config::Settings,
+    settings: vidsave_core::config::Settings,
     ytdlp: YtDlp,
     js_runtime: Option<JsRuntime>,
 ) -> Result<PlaylistInfo, String> {

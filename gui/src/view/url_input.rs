@@ -5,7 +5,7 @@ use crate::message::Message;
 use crate::state::State;
 
 pub fn view(state: &State) -> Element<'_, Message> {
-    let title = text("Playloader").size(32);
+    let title = text("VidSave").size(32);
     let subtitle = text("Paste a YouTube playlist, channel, or video URL").size(14);
 
     let input = text_input("https://www.youtube.com/...", &state.url_input)
@@ -63,12 +63,10 @@ fn setup_status(state: &State) -> Element<'_, Message> {
     }
 
     if !state.binary_status.ready() {
-        return text(
-            "Something needed to download videos is missing. Try reinstalling Playloader.",
-        )
-        .size(13)
-        .color(err)
-        .into();
+        return text("Something needed to download videos is missing. Try reinstalling VidSave.")
+            .size(13)
+            .color(err)
+            .into();
     }
 
     let mut warnings: Vec<Element<'_, Message>> = Vec::new();
@@ -82,7 +80,7 @@ fn setup_status(state: &State) -> Element<'_, Message> {
     }
     if state.binary_status.js_runtime.is_none() {
         warnings.push(
-            text("⚠ Some videos may fail to download until Playloader is reinstalled.")
+            text("⚠ Some videos may fail to download until VidSave is reinstalled.")
                 .size(12)
                 .color(warn)
                 .into(),

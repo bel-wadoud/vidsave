@@ -28,7 +28,7 @@ pub fn create(exe_path: &Path) -> Result<PathBuf> {
     // Windows shows a .url shortcut's *filename* (there's no separate
     // display-name field like .desktop has), so this capitalization is
     // what actually appears in the Start Menu.
-    let target = start_menu.join("Playloader.url");
+    let target = start_menu.join("VidSave.url");
     let exe_str = exe_path.to_string_lossy().replace('\\', "/");
     let contents = format!(
         "[InternetShortcut]\r\nURL=file:///{exe_str}\r\nIconFile={}\r\nIconIndex=0\r\n",
@@ -50,7 +50,7 @@ pub fn create(exe_path: &Path) -> Result<PathBuf> {
     std::fs::create_dir_all(&apps_dir)
         .with_context(|| format!("creating {}", apps_dir.display()))?;
 
-    let target = apps_dir.join("playloader.desktop");
+    let target = apps_dir.join("vidsave.desktop");
     // `install_logic::run_install` writes `icon.png` next to the exe before
     // calling this -- a `.desktop` entry's `Icon=` accepts a plain absolute
     // path just as well as an icon-theme name, so no theme installation is
@@ -63,7 +63,7 @@ pub fn create(exe_path: &Path) -> Result<PathBuf> {
     let contents = format!(
         "[Desktop Entry]\n\
          Type=Application\n\
-         Name=Playloader\n\
+         Name=VidSave\n\
          Comment=Download YouTube playlists and videos\n\
          Exec=\"{}\"\n\
          Icon={}\n\

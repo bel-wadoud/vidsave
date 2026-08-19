@@ -1,5 +1,5 @@
 [package]
-name = "playloader-tui"
+name = "vidsave-tui"
 version.workspace = true
 edition.workspace = true
 description = "Terminal UI for downloading YouTube playlists and videos via yt-dlp"
@@ -8,7 +8,7 @@ repository.workspace = true
 readme = "../README.md"
 
 [[bin]]
-name = "playloader-tui"
+name = "vidsave-tui"
 path = "src/main.rs"
 
 [dependencies]
@@ -18,4 +18,4 @@ crossterm = "0.29.0"
 ratatui = "0.30.2"
 tokio = { version = "1.53.1", features = ["full"] }
 tui-input = "0.15.3"
-playloader-core = { path = "../core" }
+vidsave-core = { path = "../core" }

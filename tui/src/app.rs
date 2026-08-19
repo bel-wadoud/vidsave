@@ -10,11 +10,11 @@ use tui_input::backend::crossterm::EventHandler;
 
 use tokio::sync::mpsc;
 
-use playloader_core::config::Settings;
-use playloader_core::downloader::{self, DownloadEvent, DownloadHandle};
-use playloader_core::models::{DownloadItem, DownloadState, PlaylistInfo, Video};
-use playloader_core::settings_fields::{FieldKind, SettingsField};
-use playloader_core::ytdlp::BinaryStatus;
+use vidsave_core::config::Settings;
+use vidsave_core::downloader::{self, DownloadEvent, DownloadHandle};
+use vidsave_core::models::{DownloadItem, DownloadState, PlaylistInfo, Video};
+use vidsave_core::settings_fields::{FieldKind, SettingsField};
+use vidsave_core::ytdlp::BinaryStatus;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
@@ -159,13 +159,9 @@ impl App {
         self.fetch_rx = Some(rx);
         self.screen = Screen::Fetching;
         tokio::spawn(async move {
-            let result = playloader_core::ytdlp::fetch_playlist(
-                &url,
-                &settings,
-                &ytdlp,
-                js_runtime.as_ref(),
-            )
-            .await;
+            let result =
+                vidsave_core::ytdlp::fetch_playlist(&url, &settings, &ytdlp, js_runtime.as_ref())
+                    .await;
             let _ = tx.send(result);
         });
     }
@@ -274,7 +270,7 @@ impl App {
         // batch land, not the persisted output-dir setting itself.
         let mut download_settings = self.settings.clone();
         if playlist.is_playlist {
-            let folder = playloader_core::models::sanitize_path_component(&playlist.title);
+            let folder = vidsave_core::models::sanitize_path_component(&playlist.title);
             download_settings.output_dir = self.settings.output_dir.join(folder);
         }
 
@@ -302,7 +298,7 @@ impl App {
         self.download_cursor = 0;
         self.download_started_at = Some(Instant::now());
         self.batch_done = false;
-        let binaries = playloader_core::downloader::BinaryPaths {
+        let binaries = vidsave_core::downloader::BinaryPaths {
             ytdlp,
             ffmpeg: self.binary_status.ffmpeg_path.clone(),
             js_runtime: self.binary_status.js_runtime.clone(),

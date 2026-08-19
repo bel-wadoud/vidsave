@@ -1,6 +1,6 @@
 //! Two build-time guards, both feeding `include_bytes!` in `src/main.rs`:
 //!
-//! 1. Makes sure a freshly built `playloader-tui` binary for the target platform
+//! 1. Makes sure a freshly built `vidsave-tui` binary for the target platform
 //!    is sitting in `embed/` before compiling. Run the app's own build (for
 //!    the same target) first -- see `../build-installer.sh`, which does
 //!    exactly that.
@@ -19,10 +19,10 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 
 fn main() {
-    if let Err(e) = check_embedded_app_binary("playloader-tui", "PLAYLOADER_TUI_BINARY_PATH") {
+    if let Err(e) = check_embedded_app_binary("vidsave-tui", "VIDSAVE_TUI_BINARY_PATH") {
         panic!("\n\n{e:#}\n\n");
     }
-    if let Err(e) = check_embedded_app_binary("playloader", "PLAYLOADER_GUI_BINARY_PATH") {
+    if let Err(e) = check_embedded_app_binary("vidsave", "VIDSAVE_GUI_BINARY_PATH") {
         panic!("\n\n{e:#}\n\n");
     }
     if let Err(e) = zip_vendored_ytdlp() {

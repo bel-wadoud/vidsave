@@ -1,9 +1,9 @@
-//! playloader-install: Playloader's graphical setup wizard. Lets you choose
+//! vidsave-install: VidSave's graphical setup wizard. Lets you choose
 //! the terminal version, the desktop app, or both, then installs whichever
 //! you picked plus a bundled Python runtime + vendored yt-dlp
 //! (`../vendor/`), ffmpeg, and a JS runtime (deno) into one dedicated
-//! per-user folder (`%LOCALAPPDATA%\Programs\Playloader` on Windows,
-//! `~/.local/share/playloader` on Linux -- no admin/root needed), registers
+//! per-user folder (`%LOCALAPPDATA%\Programs\VidSave` on Windows,
+//! `~/.local/share/vidsave` on Linux -- no admin/root needed), registers
 //! that folder on PATH, and adds a Start Menu / app-launcher shortcut for
 //! the desktop app.
 //!
@@ -38,8 +38,8 @@ use install_logic::{Components, InstallEvent, InstallOutcome};
 /// this crate build at all. Always embedded regardless of what the user
 /// ends up choosing on the Components page, same as any installer that
 /// bundles optional components inside one package.
-static TUI_BINARY: &[u8] = include_bytes!(env!("PLAYLOADER_TUI_BINARY_PATH"));
-static GUI_BINARY: &[u8] = include_bytes!(env!("PLAYLOADER_GUI_BINARY_PATH"));
+static TUI_BINARY: &[u8] = include_bytes!(env!("VIDSAVE_TUI_BINARY_PATH"));
+static GUI_BINARY: &[u8] = include_bytes!(env!("VIDSAVE_GUI_BINARY_PATH"));
 
 /// Our vendored copy of yt-dlp's Python source (see `../vendor/`), zipped
 /// up at compile time by `build.rs`.
@@ -61,7 +61,7 @@ pub fn main() -> iced::Result {
     }
 
     iced::application(State::default, update, view::view)
-        .title("Playloader Setup")
+        .title("VidSave Setup")
         .theme(|_state: &State| Theme::Dark)
         .window(iced::window::Settings {
             size: iced::Size::new(560.0, 520.0),
@@ -172,9 +172,9 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         Message::LaunchGuiPressed => {
             if let Some(outcome) = &state.outcome {
                 let exe = outcome.install_dir.join(if cfg!(windows) {
-                    "playloader.exe"
+                    "vidsave.exe"
                 } else {
-                    "playloader"
+                    "vidsave"
                 });
                 let _ = std::process::Command::new(exe).spawn();
             }

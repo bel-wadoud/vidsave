@@ -1,5 +1,5 @@
 //! Command-line entry points, mainly so the TUI can be launched straight
-//! into a specific playlist (`playloader-tui <url>`) instead of always
+//! into a specific playlist (`vidsave-tui <url>`) instead of always
 //! starting at the blank URL prompt.
 
 use std::path::PathBuf;
@@ -8,7 +8,7 @@ use clap::Parser;
 
 #[derive(Debug, Parser)]
 #[command(
-    name = "playloader-tui",
+    name = "vidsave-tui",
     version,
     about = "Terminal UI for downloading YouTube playlists and videos via yt-dlp"
 )]

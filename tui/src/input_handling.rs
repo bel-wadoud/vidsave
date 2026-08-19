@@ -7,7 +7,7 @@ use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use tui_input::Input;
 
 use crate::app::{App, FieldAction, MessageKind, Screen, SettingsOrigin, feed_input};
-use playloader_core::settings_fields::{FieldKind, SettingsField};
+use vidsave_core::settings_fields::{FieldKind, SettingsField};
 
 pub fn handle_key(app: &mut App, key: KeyEvent) {
     if key.kind == KeyEventKind::Release {

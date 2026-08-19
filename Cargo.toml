@@ -6,7 +6,7 @@ members = ["core", "tui", "gui", "installer"]
 version = "2.1.5"
 edition = "2024"
 license-file = "LICENSE"
-repository = "https://github.com/bel-wadoud/playloader"
+repository = "https://github.com/bel-wadoud/vidsave"
 
 # `[profile.*]` only takes effect at the workspace root -- applies to every
 # member. No crate here relies on unwinding to recover from a panic (the

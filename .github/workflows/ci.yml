@@ -42,19 +42,19 @@ jobs:
       # installer/build.rs refuses to compile without matching TUI + GUI
       # binaries already embedded, so build both first -- see
       # build-installer.sh, which does the same thing for local builds.
-      - name: build playloader-tui + playloader (release)
-        run: cargo build --release -p playloader-tui -p playloader
+      - name: build vidsave-tui + vidsave (release)
+        run: cargo build --release -p vidsave-tui -p vidsave
 
       - name: embed app binaries for installer build
         shell: bash
         run: |
           mkdir -p installer/embed
           if [ "$RUNNER_OS" = "Windows" ]; then
-            cp target/release/playloader-tui.exe installer/embed/playloader-tui.exe
-            cp target/release/playloader.exe installer/embed/playloader.exe
+            cp target/release/vidsave-tui.exe installer/embed/vidsave-tui.exe
+            cp target/release/vidsave.exe installer/embed/vidsave.exe
           else
-            cp target/release/playloader-tui installer/embed/playloader-tui
-            cp target/release/playloader installer/embed/playloader
+            cp target/release/vidsave-tui installer/embed/vidsave-tui
+            cp target/release/vidsave installer/embed/vidsave
           fi
 
       - name: clippy (workspace)
@@ -64,4 +64,4 @@ jobs:
         run: cargo test --workspace
 
       - name: build installer (release)
-        run: cargo build --release -p playloader-install
+        run: cargo build --release -p vidsave-install

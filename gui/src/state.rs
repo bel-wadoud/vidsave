@@ -7,10 +7,10 @@
 
 use std::collections::HashSet;
 
-use playloader_core::config::Settings;
-use playloader_core::downloader::DownloadHandle;
-use playloader_core::models::{DownloadItem, PlaylistInfo};
-use playloader_core::ytdlp::BinaryStatus;
+use vidsave_core::config::Settings;
+use vidsave_core::downloader::DownloadHandle;
+use vidsave_core::models::{DownloadItem, PlaylistInfo};
+use vidsave_core::ytdlp::BinaryStatus;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {

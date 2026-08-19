@@ -13,7 +13,7 @@ pub fn resolve() -> Result<PathBuf> {
     let local_app_data = std::env::var_os("LOCALAPPDATA").context("%LOCALAPPDATA% is not set")?;
     Ok(PathBuf::from(local_app_data)
         .join("Programs")
-        .join("Playloader"))
+        .join("VidSave"))
 }
 
 #[cfg(unix)]
@@ -22,5 +22,5 @@ pub fn resolve() -> Result<PathBuf> {
     Ok(PathBuf::from(home)
         .join(".local")
         .join("share")
-        .join("playloader"))
+        .join("vidsave"))
 }

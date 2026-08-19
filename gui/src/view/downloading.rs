@@ -8,7 +8,7 @@
 use iced::widget::{Space, button, column, container, progress_bar, row, scrollable, text};
 use iced::{Center, Element, Fill};
 
-use playloader_core::models::{DownloadItem, DownloadProgress, DownloadState};
+use vidsave_core::models::{DownloadItem, DownloadProgress, DownloadState};
 
 use crate::message::Message;
 use crate::state::State;

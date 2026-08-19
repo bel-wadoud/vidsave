@@ -34,19 +34,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- A desktop GUI (`playloader`), built with [iced](https://iced.rs),
+- A desktop GUI (`vidsave`), built with [iced](https://iced.rs),
   covering everything the terminal UI does: URL resolution, per-video
   selection with filtering, the full settings form, and a live download
   queue with per-item progress and cancellation. Shares every bit of
   config/download/yt-dlp logic with the terminal UI via a new shared
-  `playloader-core` library crate -- both frontends run the exact same code,
+  `vidsave-core` library crate -- both frontends run the exact same code,
   not two parallel implementations.
 - The installer is now a graphical setup wizard: Welcome -> choose the
   terminal UI, the desktop GUI, or both -> live install progress -> Finish,
   instead of a console script. Adds a Start Menu shortcut (Windows) / XDG
   desktop entry (Linux) for the GUI so it's launchable like any other
   installed app, not just from a terminal.
-- `playloader-install --silent` (with optional `--no-tui` / `--no-gui`)
+- `vidsave-install --silent` (with optional `--no-tui` / `--no-gui`)
   installs non-interactively for scripted/unattended setups, printing the
   same progress the wizard would show.
 - Project restructured into a Cargo workspace (`core`, `tui`, `gui`,
@@ -61,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of yt-dlp's source (see `vendor/`) instead of shelling out to a `yt-dlp`
   executable found on `PATH` or next to the app. If you built a manual
   "portable folder" per the old README by placing a `yt-dlp` binary next to
-  `playloader-tui` yourself, that no longer works -- use the installer or the new
+  `vidsave-tui` yourself, that no longer works -- use the installer or the new
   portable bundle release asset instead, both of which set this up
   automatically. `ffmpeg`/the JS runtime are unaffected: still resolved from
   `PATH` or the app's own folder.
@@ -72,7 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the vendored source, instead of downloading yt-dlp's release binary.
 - Advanced/non-installer setups (e.g. custom Docker-like environments) can
   point at a different interpreter or yt-dlp source via the
-  `PLAYLOADER_PYTHON` / `PLAYLOADER_YTDLP_SRC` environment variables.
+  `VIDSAVE_PYTHON` / `VIDSAVE_YTDLP_SRC` environment variables.
 
 ### Fixed
 
@@ -84,7 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `playloader-portable-{linux,windows}-x86_64.zip` release asset: the app
+- `vidsave-portable-{linux,windows}-x86_64.zip` release asset: the app
   plus its bundled Python runtime, vendored yt-dlp, ffmpeg, and deno, ready
   to run from an unzipped folder with no installer and no `PATH` changes.
 - `vendor/update.sh` to refresh the vendored yt-dlp source to the latest
@@ -118,12 +118,12 @@ Initial release.
   cancellation.
 - Settings persistence to a TOML file in the platform config directory.
 - Context-sensitive keyboard help overlay (`F1`).
-- Self-contained `playloader-install` installer that installs the app plus
+- Self-contained `vidsave-install` installer that installs the app plus
   `yt-dlp`, `ffmpeg`, and `deno`, and registers the install directory on
   `PATH` -- no admin/root required.
 - Docker image bundling the app with all of its runtime dependencies.
 
-[2.1.5]: https://github.com/bel-wadoud/playloader/releases/tag/v2.1.5
-[2.1.0]: https://github.com/bel-wadoud/playloader/releases/tag/v2.1.0
-[2.0.0]: https://github.com/bel-wadoud/playloader/releases/tag/v2.0.0
-[1.0.0]: https://github.com/bel-wadoud/playloader/releases/tag/v1.0.0
+[2.1.5]: https://github.com/bel-wadoud/vidsave/releases/tag/v2.1.5
+[2.1.0]: https://github.com/bel-wadoud/vidsave/releases/tag/v2.1.0
+[2.0.0]: https://github.com/bel-wadoud/vidsave/releases/tag/v2.0.0
+[1.0.0]: https://github.com/bel-wadoud/vidsave/releases/tag/v1.0.0

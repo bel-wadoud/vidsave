@@ -1,14 +1,14 @@
 [package]
-name = "playloader-core"
+name = "vidsave-core"
 version.workspace = true
 edition.workspace = true
-description = "Shared download/config/settings logic behind Playloader's desktop and terminal frontends"
+description = "Shared download/config/settings logic behind VidSave's desktop and terminal frontends"
 license-file.workspace = true
 repository.workspace = true
 publish = false
 
 [lib]
-name = "playloader_core"
+name = "vidsave_core"
 path = "src/lib.rs"
 
 [dependencies]

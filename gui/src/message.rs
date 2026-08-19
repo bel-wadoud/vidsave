@@ -1,7 +1,7 @@
-use playloader_core::downloader::DownloadEvent;
-use playloader_core::models::{AudioFormat, MediaMode, PlaylistInfo, VideoContainer, VideoQuality};
-use playloader_core::settings_fields::SettingsField;
-use playloader_core::ytdlp::BinaryStatus;
+use vidsave_core::downloader::DownloadEvent;
+use vidsave_core::models::{AudioFormat, MediaMode, PlaylistInfo, VideoContainer, VideoQuality};
+use vidsave_core::settings_fields::SettingsField;
+use vidsave_core::ytdlp::BinaryStatus;
 
 #[derive(Debug, Clone)]
 pub enum Message {
