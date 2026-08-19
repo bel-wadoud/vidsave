@@ -12,6 +12,7 @@ use tokio::sync::mpsc;
 
 use vidsave_core::config::Settings;
 use vidsave_core::downloader::{self, DownloadEvent, DownloadHandle};
+use vidsave_core::history::{self, HistoryEntry};
 use vidsave_core::models::{DownloadItem, DownloadState, PlaylistInfo, Video};
 use vidsave_core::settings_fields::{FieldKind, SettingsField};
 use vidsave_core::ytdlp::BinaryStatus;
@@ -23,6 +24,13 @@ pub enum Screen {
     VideoList,
     Settings,
     Downloading,
+    /// Drilled into one playlist/channel history entry, showing its videos
+    /// -- see `App::open_history_entry`.
+    HistoryPlaylist,
+    /// One video's recorded outcome -- reached either directly from
+    /// `HistoryPlaylist` -> a video, or straight from `UrlInput` for a
+    /// single-video history entry (no point showing a list of one).
+    HistoryVideoDetail,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,6 +72,18 @@ pub struct App {
 
     // -- URL input screen --
     pub url_input: Input,
+    /// Recent download batches, newest first -- shown as a list below the
+    /// URL input box. Loaded once at startup and appended to as batches
+    /// finish; see `push_history_entry`.
+    pub history: Vec<HistoryEntry>,
+    /// Whether Up/Down/Enter on the URL input screen act on `history`
+    /// (toggled with `Tab`) rather than the URL text box.
+    pub history_focused: bool,
+    pub history_cursor: usize,
+    /// Index into `history` of the entry currently drilled into, on either
+    /// `HistoryPlaylist` or `HistoryVideoDetail`.
+    pub history_open: Option<usize>,
+    pub history_video_cursor: usize,
 
     // -- Fetching screen --
     pub fetch_rx: Option<tokio::sync::oneshot::Receiver<anyhow::Result<PlaylistInfo>>>,
@@ -105,6 +125,11 @@ impl App {
             show_help: false,
             status: None,
             url_input: Input::default(),
+            history: history::load_history(),
+            history_focused: false,
+            history_cursor: 0,
+            history_open: None,
+            history_video_cursor: 0,
             fetch_rx: None,
             fetch_spinner_frame: 0,
             pending_url: String::new(),
@@ -328,14 +353,95 @@ impl App {
         if let Some(item) = self.items.get_mut(index) {
             item.set_state(state);
         }
-        if !self.items.is_empty() && self.items.iter().all(|i| i.state.is_terminal()) {
+        if !self.batch_done
+            && !self.items.is_empty()
+            && self.items.iter().all(|i| i.state.is_terminal())
+        {
             self.batch_done = true;
+            self.record_history();
         }
     }
 
     pub fn on_download_channel_closed(&mut self) {
         self.downloader = None;
-        self.batch_done = true;
+        if !self.batch_done {
+            self.batch_done = true;
+            self.record_history();
+        }
+    }
+
+    /// Appends this just-finished batch to `history.json` and to the
+    /// in-memory list shown on the URL input screen -- called exactly once
+    /// per batch, right as `batch_done` flips to `true`.
+    fn record_history(&mut self) {
+        let Some(playlist) = &self.playlist else {
+            return;
+        };
+        let Some(entry) = HistoryEntry::from_batch(playlist, &self.items) else {
+            return;
+        };
+        if let Err(e) = history::push_history_entry(entry.clone()) {
+            self.set_status(
+                format!("Could not save download history: {e}"),
+                MessageKind::Error,
+            );
+        }
+        self.history.insert(0, entry);
+    }
+
+    // ---------------------------------------------------------------
+    // History screen (embedded list on UrlInput, drilling into
+    // HistoryPlaylist / HistoryVideoDetail)
+    // ---------------------------------------------------------------
+
+    /// `Enter` on the currently-selected history row: a single-video entry
+    /// goes straight to its detail (a "list" of one video is pointless), a
+    /// playlist/channel entry opens its video list.
+    pub fn open_selected_history_entry(&mut self) {
+        let Some(entry) = self.history.get(self.history_cursor) else {
+            return;
+        };
+        self.history_open = Some(self.history_cursor);
+        self.history_video_cursor = 0;
+        self.screen = if entry.is_single_video() {
+            Screen::HistoryVideoDetail
+        } else {
+            Screen::HistoryPlaylist
+        };
+    }
+
+    pub fn open_selected_history_video(&mut self) {
+        self.screen = Screen::HistoryVideoDetail;
+    }
+
+    pub fn current_history_entry(&self) -> Option<&HistoryEntry> {
+        self.history.get(self.history_open?)
+    }
+
+    pub fn current_history_video(&self) -> Option<&history::HistoryVideoEntry> {
+        self.current_history_entry()?
+            .videos
+            .get(self.history_video_cursor)
+    }
+
+    /// `Esc` from `HistoryVideoDetail`: back to the video list for a
+    /// playlist/channel entry, or straight back to `UrlInput` for a
+    /// single-video entry (there's no list screen to return to).
+    pub fn back_from_history_video_detail(&mut self) {
+        let is_single = self
+            .current_history_entry()
+            .is_some_and(HistoryEntry::is_single_video);
+        if is_single {
+            self.history_open = None;
+            self.screen = Screen::UrlInput;
+        } else {
+            self.screen = Screen::HistoryPlaylist;
+        }
+    }
+
+    pub fn back_from_history_playlist(&mut self) {
+        self.history_open = None;
+        self.screen = Screen::UrlInput;
     }
 
     // ---------------------------------------------------------------

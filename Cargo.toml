@@ -3,7 +3,7 @@ resolver = "2"
 members = ["core", "tui", "gui", "installer"]
 
 [workspace.package]
-version = "2.1.5"
+version = "2.2.0"
 edition = "2024"
 license-file = "LICENSE"
 repository = "https://github.com/bel-wadoud/vidsave"

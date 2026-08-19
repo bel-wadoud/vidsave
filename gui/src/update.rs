@@ -9,6 +9,7 @@ use iced::Task;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use vidsave_core::downloader::{self, BinaryPaths, DownloadEvent};
+use vidsave_core::history::{self, HistoryEntry};
 use vidsave_core::models::{self, DownloadItem, DownloadState, PlaylistInfo, Video};
 use vidsave_core::ytdlp::{self, JsRuntime, YtDlp};
 
@@ -197,6 +198,46 @@ pub fn update(state: &mut State, message: Message) -> Task<Message> {
             state.url_input.clear();
             Task::none()
         }
+
+        // -- Download history --
+        Message::OpenHistoryEntry(index) => {
+            state.history_open = Some(index);
+            state.history_video_open = None;
+            let single_video = state
+                .history
+                .get(index)
+                .is_some_and(HistoryEntry::is_single_video);
+            state.screen = if single_video {
+                state.history_video_open = Some(0);
+                Screen::HistoryVideoDetail
+            } else {
+                Screen::HistoryPlaylist
+            };
+            Task::none()
+        }
+        Message::OpenHistoryVideo(index) => {
+            state.history_video_open = Some(index);
+            state.screen = Screen::HistoryVideoDetail;
+            Task::none()
+        }
+        Message::BackFromHistoryPlaylist => {
+            state.history_open = None;
+            state.screen = Screen::UrlInput;
+            Task::none()
+        }
+        Message::BackFromHistoryVideoDetail => {
+            let single_video = state
+                .current_history_entry()
+                .is_some_and(HistoryEntry::is_single_video);
+            if single_video {
+                state.history_open = None;
+                state.screen = Screen::UrlInput;
+            } else {
+                state.history_video_open = None;
+                state.screen = Screen::HistoryPlaylist;
+            }
+            Task::none()
+        }
     }
 }
 
@@ -327,7 +368,31 @@ fn apply_download_event(state: &mut State, event: DownloadEvent) {
     if let Some(item) = state.items.get_mut(index) {
         item.set_state(new_state);
     }
-    if !state.items.is_empty() && state.items.iter().all(|i| i.state.is_terminal()) {
+    if !state.batch_done
+        && !state.items.is_empty()
+        && state.items.iter().all(|i| i.state.is_terminal())
+    {
         state.batch_done = true;
+        record_history(state);
     }
+}
+
+/// Appends this just-finished batch to `history.json` and to the in-memory
+/// list shown on the URL input screen -- called exactly once per batch,
+/// right as `batch_done` flips to `true`. Mirrors the TUI's
+/// `App::record_history`.
+fn record_history(state: &mut State) {
+    let Some(playlist) = &state.playlist else {
+        return;
+    };
+    let Some(entry) = HistoryEntry::from_batch(playlist, &state.items) else {
+        return;
+    };
+    if let Err(e) = history::push_history_entry(entry.clone()) {
+        state.set_status(
+            format!("Could not save download history: {e}"),
+            StatusKind::Error,
+        );
+    }
+    state.history.insert(0, entry);
 }

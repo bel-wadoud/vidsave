@@ -35,10 +35,39 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
         Screen::VideoList => handle_video_list(app, key),
         Screen::Settings => handle_settings(app, key),
         Screen::Downloading => handle_downloading(app, key),
+        Screen::HistoryPlaylist => handle_history_playlist(app, key),
+        Screen::HistoryVideoDetail => handle_history_video_detail(app, key),
     }
 }
 
 fn handle_url_input(app: &mut App, key: KeyEvent) {
+    // Tab moves focus between the URL box and the history list below it --
+    // only meaningful when there's actually history to browse.
+    if key.code == KeyCode::Tab && !app.history.is_empty() {
+        app.history_focused = !app.history_focused;
+        return;
+    }
+
+    if app.history_focused {
+        let max_cursor = app.history.len().saturating_sub(1);
+        match key.code {
+            KeyCode::Up | KeyCode::Char('k') => {
+                app.history_cursor = app.history_cursor.saturating_sub(1)
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                app.history_cursor = (app.history_cursor + 1).min(max_cursor)
+            }
+            KeyCode::Enter => app.open_selected_history_entry(),
+            KeyCode::Esc => app.history_focused = false,
+            KeyCode::F(2) => {
+                app.settings_origin = SettingsOrigin::UrlInput;
+                app.screen = Screen::Settings;
+            }
+            _ => {}
+        }
+        return;
+    }
+
     match key.code {
         KeyCode::Enter => {
             let url = app.url_input.value().trim().to_string();
@@ -58,6 +87,33 @@ fn handle_url_input(app: &mut App, key: KeyEvent) {
             app.screen = Screen::Settings;
         }
         _ => feed_input(&mut app.url_input, &Event::Key(key)),
+    }
+}
+
+fn handle_history_playlist(app: &mut App, key: KeyEvent) {
+    let max_cursor = app
+        .current_history_entry()
+        .map(|e| e.videos.len().saturating_sub(1))
+        .unwrap_or(0);
+    match key.code {
+        KeyCode::Up | KeyCode::Char('k') => {
+            app.history_video_cursor = app.history_video_cursor.saturating_sub(1)
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            app.history_video_cursor = (app.history_video_cursor + 1).min(max_cursor)
+        }
+        KeyCode::Enter => app.open_selected_history_video(),
+        KeyCode::Esc => app.back_from_history_playlist(),
+        KeyCode::Char('q') => app.should_quit = true,
+        _ => {}
+    }
+}
+
+fn handle_history_video_detail(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc => app.back_from_history_video_detail(),
+        KeyCode::Char('q') => app.should_quit = true,
+        _ => {}
     }
 }
 

@@ -14,6 +14,9 @@ pub fn draw(frame: &mut Frame, screen: Screen) {
         Screen::UrlInput => lines.extend([
             Line::from("Enter          Fetch playlist / video"),
             Line::from("F2             Open settings"),
+            Line::from("Tab            Move focus to/from download history"),
+            Line::from("Up/Down, j/k   (in history) Move cursor"),
+            Line::from("Enter          (in history) Open the selected entry"),
         ]),
         Screen::Fetching => lines.push(Line::from("Esc            Cancel fetch")),
         Screen::VideoList => lines.extend([
@@ -40,6 +43,16 @@ pub fn draw(frame: &mut Frame, screen: Screen) {
             Line::from("c              Cancel the selected item"),
             Line::from("C              Cancel everything"),
             Line::from("Esc            Back to video list (downloads keep running)"),
+            Line::from("q              Quit"),
+        ]),
+        Screen::HistoryPlaylist => lines.extend([
+            Line::from("Up/Down, j/k   Move cursor"),
+            Line::from("Enter          View that video's details"),
+            Line::from("Esc            Back to the URL screen"),
+            Line::from("q              Quit"),
+        ]),
+        Screen::HistoryVideoDetail => lines.extend([
+            Line::from("Esc            Back"),
             Line::from("q              Quit"),
         ]),
     }

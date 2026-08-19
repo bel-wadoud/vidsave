@@ -219,8 +219,16 @@ pub async fn fetch_playlist(
     js_runtime: Option<&JsRuntime>,
 ) -> Result<PlaylistInfo> {
     let mut cmd = ytdlp.command();
-    cmd.arg("--flat-playlist")
-        .arg("--dump-single-json")
+    // `--flat-playlist` is fast but only reports title/uploader/duration --
+    // no per-video formats, so no file size. With `index_everything` on, we
+    // skip it and let yt-dlp actually resolve every entry, which is slower
+    // (one real request per video, not a quick listing) but gives an
+    // accurate size for each one -- see `Settings::index_everything`'s doc
+    // comment.
+    if !settings.index_everything {
+        cmd.arg("--flat-playlist");
+    }
+    cmd.arg("--dump-single-json")
         .arg("--no-warnings")
         .arg("--ignore-no-formats-error");
 
@@ -249,10 +257,14 @@ pub async fn fetch_playlist(
     let root: Value = serde_json::from_slice(&output.stdout)
         .context("yt-dlp returned output that could not be parsed as JSON")?;
 
-    parse_playlist_json(&root, settings)
+    parse_playlist_json(&root, settings, url)
 }
 
-fn parse_playlist_json(root: &Value, settings: &Settings) -> Result<PlaylistInfo> {
+fn parse_playlist_json(
+    root: &Value,
+    settings: &Settings,
+    source_url: &str,
+) -> Result<PlaylistInfo> {
     let playlist_title = root
         .get("title")
         .and_then(Value::as_str)
@@ -301,6 +313,7 @@ fn parse_playlist_json(root: &Value, settings: &Settings) -> Result<PlaylistInfo
         uploader,
         videos,
         is_playlist,
+        source_url: source_url.to_string(),
     })
 }
 
@@ -352,7 +365,35 @@ fn video_from_json(entry: &Value, fallback_index: Option<u64>) -> Option<Video> 
         duration_secs,
         playlist_index,
         url,
+        filesize_bytes: filesize_from_json(entry),
     })
+}
+
+/// Best-effort approximate download size for one video's JSON entry.
+/// `--flat-playlist` listings never have this (no formats were resolved at
+/// all); a fully-indexed entry usually has it directly on `filesize`/
+/// `filesize_approx`, but falls back to scanning `formats` for the largest
+/// reported size if not -- exact vs. approximate doesn't matter much here,
+/// this is only ever shown to the user as a rough "about how big" figure.
+fn filesize_from_json(entry: &Value) -> Option<u64> {
+    let direct = entry
+        .get("filesize")
+        .and_then(Value::as_u64)
+        .or_else(|| entry.get("filesize_approx").and_then(Value::as_u64));
+    if direct.is_some() {
+        return direct;
+    }
+
+    entry
+        .get("formats")
+        .and_then(Value::as_array)?
+        .iter()
+        .filter_map(|f| {
+            f.get("filesize")
+                .and_then(Value::as_u64)
+                .or_else(|| f.get("filesize_approx").and_then(Value::as_u64))
+        })
+        .max()
 }
 
 /// Substitutes our own `{index}` token in a filename template with a
@@ -641,7 +682,7 @@ mod tests {
             "entries": [sample_video("a", 1), serde_json::Value::Null, sample_video("b", 3)],
         });
         let settings = Settings::default();
-        let playlist = parse_playlist_json(&root, &settings).unwrap();
+        let playlist = parse_playlist_json(&root, &settings, "https://example.com/list").unwrap();
         assert_eq!(playlist.title, "My Playlist");
         assert_eq!(playlist.videos.len(), 2);
         assert_eq!(playlist.videos[0].id, "a");
@@ -652,7 +693,7 @@ mod tests {
     fn parses_single_video_without_entries_array() {
         let root = sample_video("solo", 1);
         let settings = Settings::default();
-        let playlist = parse_playlist_json(&root, &settings).unwrap();
+        let playlist = parse_playlist_json(&root, &settings, "https://example.com/list").unwrap();
         assert_eq!(playlist.videos.len(), 1);
         assert_eq!(playlist.videos[0].id, "solo");
     }
@@ -668,7 +709,7 @@ mod tests {
             "title": "Ranged",
             "entries": [sample_video("a", 1), sample_video("b", 2), sample_video("c", 3), sample_video("d", 4)],
         });
-        let playlist = parse_playlist_json(&root, &settings).unwrap();
+        let playlist = parse_playlist_json(&root, &settings, "https://example.com/list").unwrap();
         let ids: Vec<&str> = playlist.videos.iter().map(|v| v.id.as_str()).collect();
         assert_eq!(ids, vec!["b", "c"]);
     }
@@ -683,7 +724,7 @@ mod tests {
             "title": "Reversed",
             "entries": [sample_video("a", 1), sample_video("b", 2)],
         });
-        let playlist = parse_playlist_json(&root, &settings).unwrap();
+        let playlist = parse_playlist_json(&root, &settings, "https://example.com/list").unwrap();
         let ids: Vec<&str> = playlist.videos.iter().map(|v| v.id.as_str()).collect();
         assert_eq!(ids, vec!["b", "a"]);
     }
@@ -702,6 +743,7 @@ mod tests {
             duration_secs: None,
             playlist_index: None,
             url: "https://example.com/watch?v=abc".into(),
+            filesize_bytes: None,
         };
         let args = build_download_args(&video, &settings, None, None);
         assert!(args.iter().any(|a| a == "-x"));
@@ -722,6 +764,7 @@ mod tests {
             duration_secs: None,
             playlist_index: None,
             url: "https://example.com/watch?v=abc".into(),
+            filesize_bytes: None,
         };
         let args = build_download_args(&video, &settings, None, None);
         let format_arg = args
@@ -742,6 +785,7 @@ mod tests {
             duration_secs: None,
             playlist_index: None,
             url: "https://example.com/watch?v=abc".into(),
+            filesize_bytes: None,
         };
         let ffmpeg = std::path::Path::new("/opt/tools/ffmpeg");
         let args = build_download_args(&video, &settings, Some(ffmpeg), None);
@@ -760,6 +804,7 @@ mod tests {
             duration_secs: None,
             playlist_index: Some(15),
             url: "u".into(),
+            filesize_bytes: None,
         };
         assert_eq!(
             render_filename_template("{index}%(title)s.%(ext)s", &video),
@@ -776,6 +821,7 @@ mod tests {
             duration_secs: None,
             playlist_index: None,
             url: "u".into(),
+            filesize_bytes: None,
         };
         assert_eq!(
             render_filename_template("{index}%(title)s.%(ext)s", &video),
@@ -798,6 +844,7 @@ mod tests {
             duration_secs: None,
             playlist_index: Some(index),
             url: "u".into(),
+            filesize_bytes: None,
         };
         let args_a = build_download_args(&make(3), &settings, None, None);
         let args_b = build_download_args(&make(9), &settings, None, None);
@@ -817,7 +864,7 @@ mod tests {
             "title": "Solo Video",
         });
         let settings = Settings::default();
-        let playlist = parse_playlist_json(&root, &settings).unwrap();
+        let playlist = parse_playlist_json(&root, &settings, "https://example.com/list").unwrap();
         assert_eq!(playlist.videos[0].playlist_index, None);
         assert!(!playlist.is_playlist);
     }

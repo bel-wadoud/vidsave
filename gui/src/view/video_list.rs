@@ -100,7 +100,12 @@ fn video_row(state: &State, index: usize) -> Element<'_, Message> {
         .playlist_index
         .map(|i| format!("{i:>3}. "))
         .unwrap_or_default();
-    let label = format!("{index_label}{}  ({})", video.title, video.duration_label());
+    let label = format!(
+        "{index_label}{}  ({}, {})",
+        video.title,
+        video.duration_label(),
+        video.size_label()
+    );
 
     container(
         checkbox(checked)

@@ -9,6 +9,7 @@ use std::collections::HashSet;
 
 use vidsave_core::config::Settings;
 use vidsave_core::downloader::DownloadHandle;
+use vidsave_core::history::{self, HistoryEntry};
 use vidsave_core::models::{DownloadItem, PlaylistInfo};
 use vidsave_core::ytdlp::BinaryStatus;
 
@@ -17,6 +18,12 @@ pub enum Screen {
     UrlInput,
     VideoList,
     Downloading,
+    /// Drilled into one playlist/channel history entry -- see
+    /// `State::history_open`.
+    HistoryPlaylist,
+    /// One video's recorded outcome, reached either from `HistoryPlaylist`
+    /// or straight from `UrlInput` for a single-video entry.
+    HistoryVideoDetail,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -69,6 +76,15 @@ pub struct State {
     /// cares about progress, not yt-dlp's internal output.
     pub expanded_items: HashSet<usize>,
     pub batch_done: bool,
+
+    // -- Download history: a list on the URL input screen, drilling into
+    // -- HistoryPlaylist / HistoryVideoDetail -- see `history.rs`.
+    pub history: Vec<HistoryEntry>,
+    /// Index into `history` of the entry currently drilled into.
+    pub history_open: Option<usize>,
+    /// Index into `history[history_open].videos` currently shown on
+    /// `HistoryVideoDetail`.
+    pub history_video_open: Option<usize>,
 }
 
 impl State {
@@ -92,6 +108,9 @@ impl State {
             download_handle: None,
             expanded_items: HashSet::new(),
             batch_done: false,
+            history: history::load_history(),
+            history_open: None,
+            history_video_open: None,
         }
     }
 
@@ -152,5 +171,15 @@ impl State {
 
     pub fn selected_count(&self) -> usize {
         self.selected.iter().filter(|s| **s).count()
+    }
+
+    pub fn current_history_entry(&self) -> Option<&HistoryEntry> {
+        self.history.get(self.history_open?)
+    }
+
+    pub fn current_history_video(&self) -> Option<&history::HistoryVideoEntry> {
+        self.current_history_entry()?
+            .videos
+            .get(self.history_video_open?)
     }
 }

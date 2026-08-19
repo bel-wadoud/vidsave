@@ -3,6 +3,8 @@
 
 mod downloading;
 mod help;
+mod history_playlist;
+mod history_video_detail;
 mod settings;
 mod url_input;
 mod video_list;
@@ -24,6 +26,8 @@ pub fn draw(frame: &mut Frame, app: &App) {
         Screen::VideoList => video_list::draw(frame, app, chunks[0]),
         Screen::Settings => settings::draw(frame, app, chunks[0]),
         Screen::Downloading => downloading::draw(frame, app, chunks[0]),
+        Screen::HistoryPlaylist => history_playlist::draw(frame, app, chunks[0]),
+        Screen::HistoryVideoDetail => history_video_detail::draw(frame, app, chunks[0]),
     }
 
     draw_status_bar(frame, app, chunks[1]);

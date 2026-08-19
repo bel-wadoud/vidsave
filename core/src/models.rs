@@ -212,6 +212,12 @@ pub struct Video {
     /// 1-based position within the source playlist, if any.
     pub playlist_index: Option<u64>,
     pub url: String,
+    /// Approximate download size, if yt-dlp reported one. Only available
+    /// when the fetch actually resolved formats for this video -- i.e. with
+    /// `Settings::index_everything` on, or always for a lone video URL
+    /// (never for playlist/channel entries under the default fast listing,
+    /// which doesn't touch per-video formats at all).
+    pub filesize_bytes: Option<u64>,
 }
 
 impl Video {
@@ -219,6 +225,13 @@ impl Video {
         match self.duration_secs {
             Some(s) => format_duration(s),
             None => "--:--".to_string(),
+        }
+    }
+
+    pub fn size_label(&self) -> String {
+        match self.filesize_bytes {
+            Some(b) => crate::ytdlp::human_bytes(b),
+            None => "--".to_string(),
         }
     }
 }
@@ -244,6 +257,10 @@ pub struct PlaylistInfo {
     /// list, even if it only had one item); false for a lone video URL.
     /// Drives whether downloads land in a `title`-named subfolder.
     pub is_playlist: bool,
+    /// The URL originally given to `ytdlp::fetch_playlist` -- kept around
+    /// only to record in download history (see `history::HistoryEntry`),
+    /// not used for anything download-related itself.
+    pub source_url: String,
 }
 
 /// Makes `name` safe to use as a single path component (a directory or file

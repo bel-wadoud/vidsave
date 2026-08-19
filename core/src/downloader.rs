@@ -193,6 +193,29 @@ pub fn start(
     (handle, rx)
 }
 
+/// A failed download is retried this many times in total before giving up
+/// and reporting it `Failed` -- a single yt-dlp invocation failing (a
+/// dropped connection, a transient 403, a throttling hiccup) doesn't mean
+/// the video is actually undownloadable, so treating attempt one's failure
+/// as final was needlessly giving up too early.
+const MAX_ATTEMPTS: u32 = 5;
+
+/// Delay before each retry. Fixed rather than exponential -- these are
+/// already-slow network operations retried only a handful of times, not a
+/// tight request loop that needs backoff to avoid hammering anything.
+const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// What one yt-dlp invocation (one attempt, not the whole retry loop)
+/// resulted in.
+enum AttemptOutcome {
+    Success,
+    Skipped,
+    /// Cancelled or paused by the user -- never retried, `run_one` reports
+    /// this immediately regardless of attempts remaining.
+    StoppedByUser,
+    Failed(String),
+}
+
 async fn run_one(
     index: usize,
     video: Video,
@@ -204,7 +227,7 @@ async fn run_one(
         token,
         pause_requested,
     } = control;
-    let stop_event = |pause_requested: &AtomicBool| {
+    let stop_event = || {
         if pause_requested.load(Ordering::Relaxed) {
             DownloadEvent::Paused(index)
         } else {
@@ -215,10 +238,10 @@ async fn run_one(
     let permit = tokio::select! {
         biased;
         _ = token.cancelled() => None,
-        permit = ctx.semaphore.acquire_owned() => permit.ok(),
+        permit = ctx.semaphore.clone().acquire_owned() => permit.ok(),
     };
     let Some(_permit) = permit else {
-        let _ = tx.send(stop_event(&pause_requested));
+        let _ = tx.send(stop_event());
         return;
     };
 
@@ -230,8 +253,65 @@ async fn run_one(
         ctx.binaries.ffmpeg.as_deref(),
         ctx.binaries.js_runtime.as_ref(),
     );
+
+    let mut last_error = String::new();
+    for attempt in 1..=MAX_ATTEMPTS {
+        match run_attempt(index, &ctx, &args, &token, &tx).await {
+            AttemptOutcome::Success => {
+                let _ = tx.send(DownloadEvent::Finished(index, Ok(())));
+                return;
+            }
+            AttemptOutcome::Skipped => {
+                let _ = tx.send(DownloadEvent::Skipped(index));
+                return;
+            }
+            AttemptOutcome::StoppedByUser => {
+                let _ = tx.send(stop_event());
+                return;
+            }
+            AttemptOutcome::Failed(message) => {
+                last_error = message;
+                if attempt == MAX_ATTEMPTS {
+                    break;
+                }
+                let _ = tx.send(DownloadEvent::Log(
+                    index,
+                    format!(
+                        "-- attempt {attempt}/{MAX_ATTEMPTS} failed ({last_error}), retrying in {}s --",
+                        RETRY_DELAY.as_secs()
+                    ),
+                ));
+                let stopped_during_wait = tokio::select! {
+                    biased;
+                    _ = token.cancelled() => true,
+                    () = tokio::time::sleep(RETRY_DELAY) => false,
+                };
+                if stopped_during_wait {
+                    let _ = tx.send(stop_event());
+                    return;
+                }
+            }
+        }
+    }
+    let _ = tx.send(DownloadEvent::Finished(
+        index,
+        Err(format!(
+            "failed after {MAX_ATTEMPTS} attempts: {last_error}"
+        )),
+    ));
+}
+
+/// Runs exactly one yt-dlp invocation for `args` and reports what happened
+/// to it -- the unit `run_one`'s retry loop repeats.
+async fn run_attempt(
+    index: usize,
+    ctx: &BatchContext,
+    args: &[String],
+    token: &CancellationToken,
+    tx: &mpsc::UnboundedSender<DownloadEvent>,
+) -> AttemptOutcome {
     let mut cmd = ctx.binaries.ytdlp.command();
-    cmd.args(&args)
+    cmd.args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -239,13 +319,7 @@ async fn run_one(
 
     let mut child = match cmd.spawn() {
         Ok(c) => c,
-        Err(e) => {
-            let _ = tx.send(DownloadEvent::Finished(
-                index,
-                Err(format!("failed to launch yt-dlp: {e}")),
-            ));
-            return;
-        }
+        Err(e) => return AttemptOutcome::Failed(format!("failed to launch yt-dlp: {e}")),
     };
 
     let stdout = child.stdout.take().expect("stdout was piped");
@@ -307,14 +381,14 @@ async fn run_one(
     let _ = out_task.await;
     let _ = err_task.await;
 
-    let event = match outcome {
-        Outcome::Cancelled => stop_event(&pause_requested),
+    match outcome {
+        Outcome::Cancelled => AttemptOutcome::StoppedByUser,
         Outcome::Exited(Ok(status))
             if status.success() && already_archived.load(Ordering::Relaxed) =>
         {
-            DownloadEvent::Skipped(index)
+            AttemptOutcome::Skipped
         }
-        Outcome::Exited(Ok(status)) if status.success() => DownloadEvent::Finished(index, Ok(())),
+        Outcome::Exited(Ok(status)) if status.success() => AttemptOutcome::Success,
         Outcome::Exited(Ok(status)) => {
             let tail = recent_stderr.lock().unwrap();
             let message = if tail.is_empty() {
@@ -328,13 +402,10 @@ async fn run_one(
                     .collect::<Vec<_>>()
                     .join(" | ")
             };
-            DownloadEvent::Finished(index, Err(message))
+            AttemptOutcome::Failed(message)
         }
-        Outcome::Exited(Err(e)) => {
-            DownloadEvent::Finished(index, Err(format!("failed waiting on yt-dlp: {e}")))
-        }
-    };
-    let _ = tx.send(event);
+        Outcome::Exited(Err(e)) => AttemptOutcome::Failed(format!("failed waiting on yt-dlp: {e}")),
+    }
 }
 
 enum Outcome {

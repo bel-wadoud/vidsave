@@ -31,6 +31,7 @@ pub enum SettingsField {
     WriteAutoSubs,
     SubtitleLangs,
     UseArchive,
+    IndexEverything,
     PlaylistReverse,
     PlaylistStart,
     PlaylistEnd,
@@ -43,7 +44,7 @@ pub enum SettingsField {
 }
 
 impl SettingsField {
-    pub const ALL: [SettingsField; 24] = [
+    pub const ALL: [SettingsField; 25] = [
         SettingsField::OutputDir,
         SettingsField::FilenameTemplate,
         SettingsField::Concurrency,
@@ -59,6 +60,7 @@ impl SettingsField {
         SettingsField::WriteAutoSubs,
         SettingsField::SubtitleLangs,
         SettingsField::UseArchive,
+        SettingsField::IndexEverything,
         SettingsField::PlaylistReverse,
         SettingsField::PlaylistStart,
         SettingsField::PlaylistEnd,
@@ -101,6 +103,7 @@ impl SettingsField {
             SettingsField::WriteAutoSubs => "Write auto-generated subs",
             SettingsField::SubtitleLangs => "Subtitle languages",
             SettingsField::UseArchive => "Skip already-downloaded (archive)",
+            SettingsField::IndexEverything => "Fully index playlists/channels (shows size, slower)",
             SettingsField::PlaylistReverse => "Reverse playlist order",
             SettingsField::PlaylistStart => "Playlist start index",
             SettingsField::PlaylistEnd => "Playlist end index",
@@ -127,6 +130,7 @@ impl SettingsField {
             | SettingsField::EmbedSubtitles
             | SettingsField::WriteAutoSubs
             | SettingsField::UseArchive
+            | SettingsField::IndexEverything
             | SettingsField::PlaylistReverse
             | SettingsField::SponsorblockRemove => FieldKind::Toggle,
 
@@ -147,6 +151,7 @@ impl SettingsField {
             SettingsField::EmbedSubtitles => s.embed_subtitles,
             SettingsField::WriteAutoSubs => s.write_auto_subs,
             SettingsField::UseArchive => s.use_download_archive,
+            SettingsField::IndexEverything => s.index_everything,
             SettingsField::PlaylistReverse => s.playlist_reverse,
             SettingsField::SponsorblockRemove => s.sponsorblock_remove,
             _ => false,
@@ -162,6 +167,7 @@ impl SettingsField {
             SettingsField::EmbedSubtitles => s.embed_subtitles = !s.embed_subtitles,
             SettingsField::WriteAutoSubs => s.write_auto_subs = !s.write_auto_subs,
             SettingsField::UseArchive => s.use_download_archive = !s.use_download_archive,
+            SettingsField::IndexEverything => s.index_everything = !s.index_everything,
             SettingsField::PlaylistReverse => s.playlist_reverse = !s.playlist_reverse,
             SettingsField::SponsorblockRemove => s.sponsorblock_remove = !s.sponsorblock_remove,
             _ => {}
@@ -253,6 +259,7 @@ impl SettingsField {
             SettingsField::EmbedSubtitles => bool_label(s.embed_subtitles),
             SettingsField::WriteAutoSubs => bool_label(s.write_auto_subs),
             SettingsField::UseArchive => bool_label(s.use_download_archive),
+            SettingsField::IndexEverything => bool_label(s.index_everything),
             SettingsField::PlaylistReverse => bool_label(s.playlist_reverse),
             SettingsField::SponsorblockRemove => bool_label(s.sponsorblock_remove),
             SettingsField::PlaylistStart => s

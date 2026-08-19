@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-08-19
+
+### Added
+
+- Download history: every finished batch is recorded and shown as a list
+  below the URL box, newest first -- a playlist/channel shows as a single
+  entry that opens into its own video list, a lone video opens straight to
+  its details. Click through to see exactly what happened to any video
+  (done, skipped, cancelled, or failed with the actual error) plus its
+  length and size. Recorded to `history.json` in the app's data directory.
+- A failed download is now retried automatically (up to 5 attempts total,
+  with a short delay in between) before being reported as failed --
+  previously a single transient failure (a dropped connection, a brief
+  403, a throttling hiccup) ended a video's download for good.
+- Video listings now show an approximate file size alongside length and
+  title, when available.
+- Settings: "Fully index playlists/channels" -- resolves real per-video
+  metadata (including file size) for every entry in a playlist or channel
+  instead of the fast default listing, which only has title/uploader/
+  duration. Off by default since it's much slower on large playlists.
+
 ## [2.1.5] - 2026-08-19
 
 ### Fixed
@@ -123,6 +144,7 @@ Initial release.
   `PATH` -- no admin/root required.
 - Docker image bundling the app with all of its runtime dependencies.
 
+[2.2.0]: https://github.com/bel-wadoud/vidsave/releases/tag/v2.2.0
 [2.1.5]: https://github.com/bel-wadoud/vidsave/releases/tag/v2.1.5
 [2.1.0]: https://github.com/bel-wadoud/vidsave/releases/tag/v2.1.0
 [2.0.0]: https://github.com/bel-wadoud/vidsave/releases/tag/v2.0.0

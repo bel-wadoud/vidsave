@@ -78,8 +78,9 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
                 .map(|i| format!("{i:>3}"))
                 .unwrap_or_else(|| "  -".to_string());
             let line = format!(
-                "{checked} {index_label}  {:<8} {}",
+                "{checked} {index_label}  {:<8} {:<9} {}",
                 video.duration_label(),
+                video.size_label(),
                 video.title
             );
             ListItem::new(line)

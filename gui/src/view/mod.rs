@@ -4,6 +4,8 @@
 //! `ui/mod.rs` in spirit.
 
 mod downloading;
+mod history_playlist;
+mod history_video_detail;
 mod settings;
 mod url_input;
 mod video_list;
@@ -22,6 +24,8 @@ pub fn view(state: &State) -> Element<'_, Message> {
             Screen::UrlInput => url_input::view(state),
             Screen::VideoList => video_list::view(state),
             Screen::Downloading => downloading::view(state),
+            Screen::HistoryPlaylist => history_playlist::view(state),
+            Screen::HistoryVideoDetail => history_video_detail::view(state),
         }
     };
 
@@ -66,5 +70,7 @@ fn activity_text(state: &State) -> String {
         Screen::VideoList => "Choose videos, then start the download".to_string(),
         Screen::Downloading if state.batch_done => "All downloads finished".to_string(),
         Screen::Downloading => "Downloading...".to_string(),
+        Screen::HistoryPlaylist => "Browsing download history".to_string(),
+        Screen::HistoryVideoDetail => "Browsing download history".to_string(),
     }
 }

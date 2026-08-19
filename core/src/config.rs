@@ -35,6 +35,12 @@ pub struct Settings {
     pub playlist_reverse: bool,
     pub playlist_start: Option<u32>,
     pub playlist_end: Option<u32>,
+    /// Fully resolve every video in a playlist/channel while fetching it
+    /// (real per-video metadata, including an approximate file size)
+    /// instead of the fast default listing, which only has title/uploader/
+    /// duration. Off by default since it turns "fetch a 500-video channel"
+    /// from one quick listing request into 500 real ones.
+    pub index_everything: bool,
     /// e.g. "2M" / "500K", empty string = unlimited.
     pub rate_limit: String,
     pub retries: u32,
@@ -75,6 +81,7 @@ impl Default for Settings {
             playlist_reverse: false,
             playlist_start: None,
             playlist_end: None,
+            index_everything: false,
             rate_limit: String::new(),
             retries: 10,
             proxy: String::new(),
@@ -96,7 +103,7 @@ fn default_output_dir() -> PathBuf {
 }
 
 impl Settings {
-    fn project_dirs() -> Option<directories::ProjectDirs> {
+    pub(crate) fn project_dirs() -> Option<directories::ProjectDirs> {
         directories::ProjectDirs::from("dev", "vidsave", "vidsave")
     }
 

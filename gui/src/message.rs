@@ -44,4 +44,12 @@ pub enum Message {
     ToggleItemDetails(usize),
     BackToVideoList,
     StartOverPressed,
+
+    // -- Download history --
+    /// A single-video entry opens its detail directly; a playlist/channel
+    /// entry opens its video list instead -- see `update::open_history_entry`.
+    OpenHistoryEntry(usize),
+    OpenHistoryVideo(usize),
+    BackFromHistoryPlaylist,
+    BackFromHistoryVideoDetail,
 }
