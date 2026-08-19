@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-08-19
+
+### Added
+
+- A "Retry" button on any video that failed after its automatic retries
+  ran out (see 2.2.0), in both the desktop and terminal UIs -- picks up
+  from whatever was already downloaded, same as resuming a paused item.
+
 ## [2.2.0] - 2026-08-19
 
 ### Added
@@ -144,6 +152,7 @@ Initial release.
   `PATH` -- no admin/root required.
 - Docker image bundling the app with all of its runtime dependencies.
 
+[2.2.1]: https://github.com/bel-wadoud/vidsave/releases/tag/v2.2.1
 [2.2.0]: https://github.com/bel-wadoud/vidsave/releases/tag/v2.2.0
 [2.1.5]: https://github.com/bel-wadoud/vidsave/releases/tag/v2.1.5
 [2.1.0]: https://github.com/bel-wadoud/vidsave/releases/tag/v2.1.0

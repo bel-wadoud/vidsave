@@ -39,7 +39,7 @@ pub fn draw(frame: &mut Frame, screen: Screen) {
         Screen::Downloading => lines.extend([
             Line::from("Up/Down, j/k   Move cursor"),
             Line::from("p              Pause the selected item"),
-            Line::from("r              Resume the selected item"),
+            Line::from("r              Resume (if paused) or retry (if failed)"),
             Line::from("c              Cancel the selected item"),
             Line::from("C              Cancel everything"),
             Line::from("Esc            Back to video list (downloads keep running)"),

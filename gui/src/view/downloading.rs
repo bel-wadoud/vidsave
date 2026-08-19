@@ -102,13 +102,22 @@ fn queue_row<'a>(state: &'a State, index: usize, item: &'a DownloadItem) -> Elem
         .into()
 }
 
-/// Pause while downloading, resume while paused -- one button, icon and
-/// action swap together so it's never showing the wrong one. Hidden (as a
-/// disabled placeholder) once the item has reached a terminal state, since
-/// there's nothing left to pause or resume.
+/// Pause while downloading, resume while paused, retry after a failure --
+/// one button, icon/label/action swap together so it's never showing the
+/// wrong one. "Retry" sends the same `ResumeItem` message as "Resume": a
+/// failed item has already used up its automatic retries (see
+/// `downloader::MAX_ATTEMPTS`), so this is the same "just run it again,
+/// picking up from whatever `.part` file is already on disk" operation,
+/// just user-triggered instead of automatic. Hidden (as a disabled
+/// placeholder) once the item is done/skipped/cancelled -- nothing left to
+/// do with those.
 fn pause_resume_button(index: usize, state: &DownloadState) -> Element<'static, Message> {
     match state {
         DownloadState::Paused => button(text("▶ Resume").size(12))
+            .style(button::success)
+            .on_press(Message::ResumeItem(index))
+            .into(),
+        DownloadState::Failed(_) => button(text("↻ Retry").size(12))
             .style(button::success)
             .on_press(Message::ResumeItem(index))
             .into(),
@@ -119,10 +128,9 @@ fn pause_resume_button(index: usize, state: &DownloadState) -> Element<'static, 
             .style(button::secondary)
             .on_press(Message::PauseItem(index))
             .into(),
-        DownloadState::Done
-        | DownloadState::Skipped
-        | DownloadState::Cancelled
-        | DownloadState::Failed(_) => Space::new().width(0).into(),
+        DownloadState::Done | DownloadState::Skipped | DownloadState::Cancelled => {
+            Space::new().width(0).into()
+        }
     }
 }
 

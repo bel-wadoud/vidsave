@@ -25,7 +25,7 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
     let hints = if app.batch_done {
         "All downloads finished   Esc back to list   q quit"
     } else {
-        "Up/Down select   p pause   r resume   c cancel item   C cancel all   Esc back (keeps running)   q quit"
+        "Up/Down select   p pause   r resume/retry   c cancel item   C cancel all   Esc back (keeps running)   q quit"
     };
     frame.render_widget(
         Paragraph::new(hints).block(Block::default().borders(Borders::ALL)),

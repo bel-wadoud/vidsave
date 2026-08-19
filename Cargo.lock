@@ -4461,7 +4461,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vidsave"
-version = "2.2.0"
+version = "2.2.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -4474,7 +4474,7 @@ dependencies = [
 
 [[package]]
 name = "vidsave-core"
-version = "2.2.0"
+version = "2.2.1"
 dependencies = [
  "anyhow",
  "directories",
@@ -4488,7 +4488,7 @@ dependencies = [
 
 [[package]]
 name = "vidsave-install"
-version = "2.2.0"
+version = "2.2.1"
 dependencies = [
  "anyhow",
  "flate2",
@@ -4507,7 +4507,7 @@ dependencies = [
 
 [[package]]
 name = "vidsave-tui"
-version = "2.2.0"
+version = "2.2.1"
 dependencies = [
  "anyhow",
  "clap",
