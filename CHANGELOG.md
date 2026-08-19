@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-08-19
+
+### Added
+
+- A desktop GUI (`ytb_dl_tui_gui`), built with [iced](https://iced.rs),
+  covering everything the terminal UI does: URL resolution, per-video
+  selection with filtering, the full settings form, and a live download
+  queue with per-item progress and cancellation. Shares every bit of
+  config/download/yt-dlp logic with the terminal UI via a new shared
+  `ytb-dl-tui-core` library crate -- both frontends run the exact same code,
+  not two parallel implementations.
+- The installer is now a graphical setup wizard: Welcome -> choose the
+  terminal UI, the desktop GUI, or both -> live install progress -> Finish,
+  instead of a console script. Adds a Start Menu shortcut (Windows) / XDG
+  desktop entry (Linux) for the GUI so it's launchable like any other
+  installed app, not just from a terminal.
+- `ytb-dl-tui-install --silent` (with optional `--no-tui` / `--no-gui`)
+  installs non-interactively for scripted/unattended setups, printing the
+  same progress the wizard would show.
+- Project restructured into a Cargo workspace (`core`, `tui`, `gui`,
+  `installer`) with one shared lockfile and target directory.
+
 ## [2.0.0] - 2026-08-18
 
 ### Changed
@@ -76,5 +98,6 @@ Initial release.
   `PATH` -- no admin/root required.
 - Docker image bundling the app with all of its runtime dependencies.
 
+[2.1.0]: https://github.com/bel-wadoud/ytb-dl-tui/releases/tag/v2.1.0
 [2.0.0]: https://github.com/bel-wadoud/ytb-dl-tui/releases/tag/v2.0.0
 [1.0.0]: https://github.com/bel-wadoud/ytb-dl-tui/releases/tag/v1.0.0
