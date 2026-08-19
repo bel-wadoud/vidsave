@@ -8,11 +8,13 @@ use std::time::Instant;
 use tui_input::Input;
 use tui_input::backend::crossterm::EventHandler;
 
-use crate::config::Settings;
-use crate::downloader::{DownloadEvent, DownloadManager};
-use crate::models::{DownloadItem, DownloadState, PlaylistInfo, Video};
-use crate::settings_fields::{FieldKind, SettingsField};
-use crate::ytdlp::BinaryStatus;
+use tokio::sync::mpsc;
+
+use ytb_dl_tui_core::config::Settings;
+use ytb_dl_tui_core::downloader::{self, DownloadEvent, DownloadHandle};
+use ytb_dl_tui_core::models::{DownloadItem, DownloadState, PlaylistInfo, Video};
+use ytb_dl_tui_core::settings_fields::{FieldKind, SettingsField};
+use ytb_dl_tui_core::ytdlp::BinaryStatus;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
@@ -40,6 +42,16 @@ pub struct StatusMessage {
 pub enum SettingsOrigin {
     UrlInput,
     VideoList,
+}
+
+/// A batch's cancellation handle and its event receiver, regrouped for our
+/// own convenience -- `core::downloader::start` returns them separately
+/// (see its doc comment) since the GUI frontend wants to hand the receiver
+/// off to its async runtime whole, but the TUI's own event loop is happy
+/// polling both off one place.
+pub struct DownloadSession {
+    pub handle: DownloadHandle,
+    pub events: mpsc::UnboundedReceiver<DownloadEvent>,
 }
 
 pub struct App {
@@ -72,7 +84,7 @@ pub struct App {
     pub edit_input: Input,
 
     // -- Downloading screen --
-    pub downloader: Option<DownloadManager>,
+    pub downloader: Option<DownloadSession>,
     pub items: Vec<DownloadItem>,
     pub download_cursor: usize,
     pub download_started_at: Option<Instant>,
@@ -147,8 +159,13 @@ impl App {
         self.fetch_rx = Some(rx);
         self.screen = Screen::Fetching;
         tokio::spawn(async move {
-            let result =
-                crate::ytdlp::fetch_playlist(&url, &settings, &ytdlp, js_runtime.as_ref()).await;
+            let result = ytb_dl_tui_core::ytdlp::fetch_playlist(
+                &url,
+                &settings,
+                &ytdlp,
+                js_runtime.as_ref(),
+            )
+            .await;
             let _ = tx.send(result);
         });
     }
@@ -257,7 +274,7 @@ impl App {
         // batch land, not the persisted output-dir setting itself.
         let mut download_settings = self.settings.clone();
         if playlist.is_playlist {
-            let folder = crate::models::sanitize_path_component(&playlist.title);
+            let folder = ytb_dl_tui_core::models::sanitize_path_component(&playlist.title);
             download_settings.output_dir = self.settings.output_dir.join(folder);
         }
 
@@ -285,12 +302,13 @@ impl App {
         self.download_cursor = 0;
         self.download_started_at = Some(Instant::now());
         self.batch_done = false;
-        let binaries = crate::downloader::BinaryPaths {
+        let binaries = ytb_dl_tui_core::downloader::BinaryPaths {
             ytdlp,
             ffmpeg: self.binary_status.ffmpeg_path.clone(),
             js_runtime: self.binary_status.js_runtime.clone(),
         };
-        self.downloader = Some(DownloadManager::start(videos, download_settings, binaries));
+        let (handle, events) = downloader::start(videos, download_settings, binaries);
+        self.downloader = Some(DownloadSession { handle, events });
         self.screen = Screen::Downloading;
     }
 

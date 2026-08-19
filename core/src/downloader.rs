@@ -41,40 +41,17 @@ pub struct BinaryPaths {
     pub js_runtime: Option<JsRuntime>,
 }
 
-pub struct DownloadManager {
-    pub events: mpsc::UnboundedReceiver<DownloadEvent>,
+/// Cancellation handle for a batch kicked off by `start`, kept separate from
+/// the event receiver (see `start`'s doc comment) so a frontend can hand the
+/// receiver off wholesale -- e.g. wrapped in a `Stream` for an async UI
+/// framework's own task/subscription system -- while still holding onto
+/// this to let the user cancel a single item or the whole batch.
+pub struct DownloadHandle {
     item_tokens: Vec<CancellationToken>,
     global_token: CancellationToken,
 }
 
-impl DownloadManager {
-    /// Kick off downloads for every video, respecting `settings.concurrency`.
-    pub fn start(videos: Vec<Video>, settings: Settings, binaries: BinaryPaths) -> Self {
-        let (tx, rx) = mpsc::unbounded_channel();
-        let global_token = CancellationToken::new();
-        let semaphore = Arc::new(Semaphore::new(settings.concurrency.max(1)));
-        let settings = Arc::new(settings);
-
-        let mut item_tokens = Vec::with_capacity(videos.len());
-        for (index, video) in videos.into_iter().enumerate() {
-            let token = global_token.child_token();
-            item_tokens.push(token.clone());
-            let tx = tx.clone();
-            let semaphore = Arc::clone(&semaphore);
-            let settings = Arc::clone(&settings);
-            let binaries = binaries.clone();
-            tokio::spawn(async move {
-                run_one(index, video, settings, semaphore, token, tx, binaries).await;
-            });
-        }
-
-        Self {
-            events: rx,
-            item_tokens,
-            global_token,
-        }
-    }
-
+impl DownloadHandle {
     /// Cancel one queued/in-flight download by index.
     pub fn cancel_item(&self, index: usize) {
         if let Some(token) = self.item_tokens.get(index) {
@@ -86,6 +63,48 @@ impl DownloadManager {
     pub fn cancel_all(&self) {
         self.global_token.cancel();
     }
+}
+
+/// Kicks off downloads for every video, respecting `settings.concurrency`.
+///
+/// Returns the cancellation handle and the event receiver separately rather
+/// than bundled in one struct: a `DownloadHandle` is just two cheap tokens
+/// (fine to hold in long-lived UI state), while the receiver is very often
+/// consumed wholesale by whatever mechanism a given frontend uses to turn an
+/// async stream into UI events (a polling loop for the TUI; an owned
+/// `Stream` handed to the async runtime for the GUI) -- forcing every
+/// caller to go through a shared struct just to get at one `mpsc` field
+/// would only get in the way of that.
+pub fn start(
+    videos: Vec<Video>,
+    settings: Settings,
+    binaries: BinaryPaths,
+) -> (DownloadHandle, mpsc::UnboundedReceiver<DownloadEvent>) {
+    let (tx, rx) = mpsc::unbounded_channel();
+    let global_token = CancellationToken::new();
+    let semaphore = Arc::new(Semaphore::new(settings.concurrency.max(1)));
+    let settings = Arc::new(settings);
+
+    let mut item_tokens = Vec::with_capacity(videos.len());
+    for (index, video) in videos.into_iter().enumerate() {
+        let token = global_token.child_token();
+        item_tokens.push(token.clone());
+        let tx = tx.clone();
+        let semaphore = Arc::clone(&semaphore);
+        let settings = Arc::clone(&settings);
+        let binaries = binaries.clone();
+        tokio::spawn(async move {
+            run_one(index, video, settings, semaphore, token, tx, binaries).await;
+        });
+    }
+
+    (
+        DownloadHandle {
+            item_tokens,
+            global_token,
+        },
+        rx,
+    )
 }
 
 async fn run_one(

@@ -1,22 +1,19 @@
-[package]
-name = "ytb_dl_tui"
-version = "2.0.0"
+[workspace]
+resolver = "2"
+members = ["core", "tui", "installer"]
+# "gui" joins this list once it's a real crate, not a work-in-progress
+# scratch directory -- see the GUI feature's own commit.
+
+[workspace.package]
+version = "2.1.0"
 edition = "2024"
-description = "Terminal UI for downloading YouTube playlists and videos via yt-dlp"
 license-file = "LICENSE"
 repository = "https://github.com/bel-wadoud/ytb-dl-tui"
-readme = "README.md"
 
-[dependencies]
-anyhow = "1.0.104"
-clap = { version = "4.6.4", features = ["derive"] }
-crossterm = "0.29.0"
-directories = "6.0.0"
-ratatui = "0.30.2"
-serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
-tokio = { version = "1.53.1", features = ["full"] }
-tokio-util = "0.7.19"
-toml = "1.1.4"
-tui-input = "0.15.3"
-which = "8.0.5"
+# `[profile.*]` only takes effect at the workspace root -- applies to every
+# member. No crate here relies on unwinding to recover from a panic (the
+# TUI's terminal-restore cleanup runs from a panic *hook*, which still runs
+# under abort), so this is a straightforward size/speed win everywhere.
+[profile.release]
+panic = "abort"
+strip = true

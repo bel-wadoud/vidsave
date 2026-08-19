@@ -5,7 +5,7 @@ use ratatui::text::Span;
 use ratatui::widgets::{Block, Borders, Gauge, List, ListItem, ListState, Paragraph, Wrap};
 
 use crate::app::App;
-use crate::models::{DownloadItem, DownloadState};
+use ytb_dl_tui_core::models::{DownloadItem, DownloadState};
 
 pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
     let chunks = Layout::vertical([

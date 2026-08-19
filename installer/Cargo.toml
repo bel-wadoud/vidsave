@@ -1,18 +1,14 @@
 [package]
 name = "ytb-dl-tui-install"
-version = "2.0.0"
-edition = "2024"
-description = "Self-contained installer for ytb_dl_tui, a bundled Python runtime + vendored yt-dlp, ffmpeg, and deno"
-license-file = "../LICENSE"
-repository = "https://github.com/bel-wadoud/ytb-dl-tui"
+version.workspace = true
+edition.workspace = true
+description = "Self-contained installer for ytb_dl_tui: a GUI wizard letting you pick the TUI, the desktop GUI, or both, plus their bundled Python runtime + vendored yt-dlp, ffmpeg, and deno"
+license-file.workspace = true
+repository.workspace = true
 
 [[bin]]
 name = "ytb-dl-tui-install"
 path = "src/main.rs"
-
-[profile.release]
-panic = "abort"
-strip = true
 
 [dependencies]
 anyhow = "1.0.104"

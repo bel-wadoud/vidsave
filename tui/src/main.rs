@@ -1,12 +1,7 @@
 mod app;
 mod cli;
-mod config;
-mod downloader;
 mod input_handling;
-mod models;
-mod settings_fields;
 mod ui;
-mod ytdlp;
 
 use std::io;
 use std::time::Duration;
@@ -22,11 +17,12 @@ use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use tokio::sync::{mpsc, oneshot};
 
-use crate::app::App;
+use crate::app::{App, DownloadSession};
 use crate::cli::Cli;
-use crate::config::Settings;
-use crate::downloader::{DownloadEvent, DownloadManager};
-use crate::models::PlaylistInfo;
+use ytb_dl_tui_core::config::Settings;
+use ytb_dl_tui_core::downloader::DownloadEvent;
+use ytb_dl_tui_core::models::PlaylistInfo;
+use ytb_dl_tui_core::ytdlp;
 
 type Term = Terminal<CrosstermBackend<io::Stdout>>;
 
@@ -120,9 +116,9 @@ async fn recv_fetch(
     }
 }
 
-async fn recv_download_event(manager: &mut Option<DownloadManager>) -> Option<DownloadEvent> {
-    match manager {
-        Some(m) => m.events.recv().await,
+async fn recv_download_event(session: &mut Option<DownloadSession>) -> Option<DownloadEvent> {
+    match session {
+        Some(s) => s.events.recv().await,
         None => std::future::pending().await,
     }
 }

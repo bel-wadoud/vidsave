@@ -26,6 +26,12 @@ impl MediaMode {
     }
 }
 
+impl std::fmt::Display for MediaMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.label())
+    }
+}
+
 /// Target vertical resolution cap for video downloads (`Best` = no cap).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VideoQuality {
@@ -89,6 +95,12 @@ impl VideoQuality {
     }
 }
 
+impl std::fmt::Display for VideoQuality {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.label())
+    }
+}
+
 /// Output container for combined video+audio downloads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VideoContainer {
@@ -124,6 +136,12 @@ impl VideoContainer {
         let all = Self::ALL;
         let idx = all.iter().position(|q| *q == self).unwrap_or(0);
         all[(idx + 1) % all.len()]
+    }
+}
+
+impl std::fmt::Display for VideoContainer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.label())
     }
 }
 
@@ -175,6 +193,12 @@ impl AudioFormat {
         let all = Self::ALL;
         let idx = all.iter().position(|q| *q == self).unwrap_or(0);
         all[(idx + 1) % all.len()]
+    }
+}
+
+impl std::fmt::Display for AudioFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.label())
     }
 }
 

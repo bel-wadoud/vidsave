@@ -7,7 +7,7 @@ use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use tui_input::Input;
 
 use crate::app::{App, FieldAction, MessageKind, Screen, SettingsOrigin, feed_input};
-use crate::settings_fields::{FieldKind, SettingsField};
+use ytb_dl_tui_core::settings_fields::{FieldKind, SettingsField};
 
 pub fn handle_key(app: &mut App, key: KeyEvent) {
     if key.kind == KeyEventKind::Release {
@@ -178,12 +178,12 @@ fn handle_downloading(app: &mut App, key: KeyEvent) {
         }
         KeyCode::Char('c') => {
             if let Some(dm) = &app.downloader {
-                dm.cancel_item(app.download_cursor);
+                dm.handle.cancel_item(app.download_cursor);
             }
         }
         KeyCode::Char('C') => {
             if let Some(dm) = &app.downloader {
-                dm.cancel_all();
+                dm.handle.cancel_all();
             }
         }
         KeyCode::Esc => app.screen = Screen::VideoList,
