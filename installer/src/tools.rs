@@ -4,8 +4,8 @@
 //!
 //! yt-dlp itself isn't here: we ship our own vendored copy of its source
 //! (see `../vendor/`) plus a bundled Python runtime (see `python_runtime.rs`)
-//! instead of downloading yt-dlp's own release binary -- `main.rs` installs
-//! both directly rather than through this generic per-tool path.
+//! instead of downloading yt-dlp's own release binary -- `install_logic.rs`
+//! installs both directly rather than through this generic per-tool path.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tool {
@@ -66,14 +66,6 @@ impl Tool {
             Tool::Ffmpeg => &["-version"],
             Tool::Deno => &["--version"],
         }
-    }
-
-    /// Neither is strictly required -- they degrade specific features
-    /// (merging/embedding, some videos failing to extract) but the app
-    /// still runs without them. The Python runtime + vendored yt-dlp
-    /// (installed separately in `main.rs`) *are* required.
-    pub fn required(self) -> bool {
-        false
     }
 
     /// Direct-download standalone builds only: a static ffmpeg and deno's

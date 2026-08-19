@@ -1,377 +1,187 @@
-//! ytb-dl-tui-install: a single, self-contained installer. It embeds a
-//! real build of `ytb_dl_tui` (see `build.rs`) plus our own vendored copy of
-//! yt-dlp's source (see `../vendor/`), and installs those together with a
-//! bundled Python runtime, ffmpeg, and a JS runtime (deno) into one
-//! dedicated per-user folder (`%LOCALAPPDATA%\Programs\ytb-dl-tui` on
-//! Windows, `~/.local/share/ytb-dl-tui` on Linux -- no admin/root needed),
-//! then registers that folder on PATH so `ytb_dl_tui` runs from any
-//! terminal, any directory, without the user having to keep files together
-//! by hand or separately install yt-dlp themselves.
+//! ytb-dl-tui-install: a graphical setup wizard. Lets you choose the
+//! terminal UI, the desktop GUI, or both, then installs whichever you
+//! picked plus a bundled Python runtime + vendored yt-dlp (`../vendor/`),
+//! ffmpeg, and a JS runtime (deno) into one dedicated per-user folder
+//! (`%LOCALAPPDATA%\Programs\ytb-dl-tui` on Windows, `~/.local/share/
+//! ytb-dl-tui` on Linux -- no admin/root needed), registers that folder on
+//! PATH, and adds a Start Menu / app-launcher shortcut for the GUI.
+//!
+//! `--silent` skips the window entirely and installs both (or, combined
+//! with `--no-tui` / `--no-gui`, just one) non-interactively, printing the
+//! same progress the wizard would show -- for scripted/unattended installs.
 
 mod download;
 mod extract;
 mod install_location;
+mod install_logic;
 mod path_env;
 mod python_runtime;
+mod shortcut;
 mod tools;
+mod view;
 
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use iced::{Task, Theme};
+use tokio_stream::wrappers::UnboundedReceiverStream;
 
-use anyhow::{Context, Result, bail};
-use path_env::PathAction;
-use tools::Tool;
+use install_logic::{Components, InstallEvent, InstallOutcome};
 
-/// The exact `ytb_dl_tui` binary for this platform, embedded at compile
-/// time -- see `build.rs`, which requires it to exist in `embed/` before
-/// letting this crate build at all.
-static APP_BINARY: &[u8] = include_bytes!(env!("YTB_DL_TUI_BINARY_PATH"));
+/// The TUI and GUI binaries for this platform, embedded at compile time --
+/// see `build.rs`, which requires both to exist in `embed/` before letting
+/// this crate build at all. Always embedded regardless of what the user
+/// ends up choosing on the Components page, same as any installer that
+/// bundles optional components inside one package.
+static TUI_BINARY: &[u8] = include_bytes!(env!("YTB_DL_TUI_TUI_BINARY_PATH"));
+static GUI_BINARY: &[u8] = include_bytes!(env!("YTB_DL_TUI_GUI_BINARY_PATH"));
 
 /// Our vendored copy of yt-dlp's Python source (see `../vendor/`), zipped
-/// up at compile time by `build.rs`. We ship this instead of downloading
-/// yt-dlp's own release binary, so the exact version running is always the
-/// one this installer was built with.
+/// up at compile time by `build.rs`.
 static YTDLP_VENDOR_ZIP: &[u8] = include_bytes!(env!("YTDLP_VENDOR_ZIP_PATH"));
 
-fn app_exe_filename() -> &'static str {
-    if cfg!(windows) {
-        "ytb_dl_tui.exe"
-    } else {
-        "ytb_dl_tui"
+pub fn main() -> iced::Result {
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--silent") {
+        // No window, no runtime, no interaction: does the same install a
+        // click-through of the wizard would, printing the same progress the
+        // wizard would show, and exits with a status code -- for scripted/
+        // unattended installs, and for CI to build the "portable bundle"
+        // release asset without anything there to click Next.
+        let components = Components {
+            tui: !args.iter().any(|a| a == "--no-tui"),
+            gui: !args.iter().any(|a| a == "--no-gui"),
+        };
+        std::process::exit(run_silent(components));
+    }
+
+    iced::application(State::default, update, view::view)
+        .title("ytb-dl-tui Setup")
+        .theme(|_state: &State| Theme::Dark)
+        .window(iced::window::Settings {
+            size: iced::Size::new(560.0, 520.0),
+            resizable: true,
+            ..Default::default()
+        })
+        .run()
+}
+
+/// `blocking_recv` (rather than needing any async runtime at all here) is
+/// exactly what it's for: bridging a channel fed from synchronous code
+/// (`run_install`, on its own thread) back to synchronous code (this one).
+fn run_silent(components: Components) -> i32 {
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    let install_thread = std::thread::spawn(move || install_logic::run_install(components, tx));
+
+    while let Some(event) = rx.blocking_recv() {
+        match event {
+            InstallEvent::Step(s) => println!("-- {s} --"),
+            InstallEvent::Detail(s) => println!("   {s}"),
+            InstallEvent::Warning(s) => eprintln!("   {s}"),
+        }
+    }
+
+    let outcome = install_thread.join().expect("install thread panicked");
+    if outcome.success { 0 } else { 1 }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Screen {
+    Welcome,
+    Components,
+    Installing,
+    Finish,
+}
+
+struct State {
+    screen: Screen,
+    install_tui: bool,
+    install_gui: bool,
+    log: Vec<InstallEvent>,
+    outcome: Option<InstallOutcome>,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            screen: Screen::Welcome,
+            install_tui: true,
+            install_gui: true,
+            log: Vec::new(),
+            outcome: None,
+        }
     }
 }
 
-fn main() {
-    let code = run();
-    pause_before_exit();
-    std::process::exit(code);
+#[derive(Debug, Clone)]
+enum Message {
+    NextPressed,
+    BackPressed,
+    ToggleTui(bool),
+    ToggleGui(bool),
+    InstallProgress(InstallEvent),
+    InstallFinished(InstallOutcome),
+    LaunchGuiPressed,
+    FinishPressed,
 }
 
-fn run() -> i32 {
-    println!("ytb-dl-tui installer");
-    println!("=====================");
-    println!();
-
-    let install_dir = match install_location::resolve() {
-        Ok(dir) => dir,
-        Err(e) => {
-            eprintln!("Could not determine where to install: {e:#}");
-            return 1;
-        }
-    };
-    if let Err(e) = std::fs::create_dir_all(&install_dir) {
-        eprintln!("Could not create {}: {e}", install_dir.display());
-        return 1;
-    }
-    println!("Installing to: {}", install_dir.display());
-    println!();
-
-    println!("-- ytb_dl_tui --");
-    let app_dest = install_dir.join(app_exe_filename());
-    if let Err(e) = install_app(&app_dest) {
-        eprintln!("   FAILED: {e:#}");
-        eprintln!("Cannot continue without the app itself installed.");
-        return 1;
-    }
-    println!("   installed: {}", app_dest.display());
-    println!();
-
-    println!("-- yt-dlp (bundled Python runtime + vendored source) --");
-    let mut missing_required = false;
-    match ensure_ytdlp(&install_dir) {
-        Ok(YtDlpStatus::AlreadyInstalled) => println!("   already installed"),
-        Ok(YtDlpStatus::Installed) => println!("   installed"),
-        Err(e) => {
-            println!("   FAILED: {e:#}");
-            missing_required = true;
-        }
-    }
-    println!();
-
-    println!("-- ffmpeg --");
-    match ensure_ffmpeg(&install_dir) {
-        Ok(Status::AlreadyOnPath(path)) => {
-            println!("   already available on PATH: {}", path.display())
-        }
-        Ok(Status::AlreadyInstalled(path)) => println!("   already installed: {}", path.display()),
-        Ok(Status::Installed(path)) => println!("   installed: {}", path.display()),
-        Err(e) => {
-            println!("   FAILED: {e:#}");
-            println!("   (not required -- ytb_dl_tui will still run, with reduced features)");
-        }
-    }
-    println!();
-
-    for tool in Tool::ALL {
-        println!("-- {} --", tool.display_name());
-        match ensure_tool(tool, &install_dir) {
-            Ok(Status::AlreadyOnPath(path)) => {
-                println!("   already available on PATH: {}", path.display());
+fn update(state: &mut State, message: Message) -> Task<Message> {
+    match message {
+        Message::NextPressed => match state.screen {
+            Screen::Welcome => {
+                state.screen = Screen::Components;
+                Task::none()
             }
-            Ok(Status::AlreadyInstalled(path)) => {
-                println!("   already installed: {}", path.display());
+            Screen::Components if state.install_tui || state.install_gui => {
+                state.screen = Screen::Installing;
+                begin_install(state)
             }
-            Ok(Status::Installed(path)) => {
-                println!("   installed: {}", path.display());
-            }
-            Err(e) => {
-                println!("   FAILED: {e:#}");
-                if tool.required() {
-                    missing_required = true;
+            _ => Task::none(),
+        },
+        Message::BackPressed => {
+            state.screen = Screen::Welcome;
+            Task::none()
+        }
+        Message::ToggleTui(value) => {
+            state.install_tui = value;
+            Task::none()
+        }
+        Message::ToggleGui(value) => {
+            state.install_gui = value;
+            Task::none()
+        }
+        Message::InstallProgress(event) => {
+            state.log.push(event);
+            Task::none()
+        }
+        Message::InstallFinished(outcome) => {
+            state.outcome = Some(outcome);
+            state.screen = Screen::Finish;
+            Task::none()
+        }
+        Message::LaunchGuiPressed => {
+            if let Some(outcome) = &state.outcome {
+                let exe = outcome.install_dir.join(if cfg!(windows) {
+                    "ytb_dl_tui_gui.exe"
                 } else {
-                    println!(
-                        "   (not required -- ytb_dl_tui will still run, with reduced features)"
-                    );
-                }
+                    "ytb_dl_tui_gui"
+                });
+                let _ = std::process::Command::new(exe).spawn();
             }
+            Task::none()
         }
-        println!();
+        Message::FinishPressed => iced::exit(),
     }
-
-    println!("-- PATH --");
-    let mut needs_new_terminal = false;
-    match path_env::ensure_on_path(&install_dir) {
-        Ok(PathAction::AlreadyPresent) => {
-            println!("   already on PATH");
-        }
-        Ok(PathAction::Added(where_)) => {
-            println!("   added to {where_}");
-            needs_new_terminal = true;
-        }
-        Err(e) => {
-            println!("   could not update PATH automatically: {e:#}");
-            println!("   add this folder to PATH yourself to run ytb_dl_tui from anywhere:");
-            println!("     {}", install_dir.display());
-        }
-    }
-    println!();
-
-    if missing_required {
-        println!("The bundled Python runtime + yt-dlp could not be installed");
-        println!("automatically; ytb_dl_tui cannot run without them. Check your");
-        println!("network connection and try running this installer again.");
-        return 1;
-    }
-
-    println!("Done. ytb_dl_tui is installed.");
-    if needs_new_terminal {
-        println!("Open a NEW terminal window and run:  ytb_dl_tui");
-        println!("(a window that was already open won't see the PATH change)");
-    } else {
-        println!("Run it from any terminal:  ytb_dl_tui");
-    }
-    0
 }
 
-/// Writes the embedded app binary to `dest`, always overwriting -- running
-/// the installer again should always leave you with exactly the version it
-/// shipped, not whatever happened to already be there.
-fn install_app(dest: &Path) -> Result<()> {
-    std::fs::write(dest, APP_BINARY).with_context(|| format!("writing {}", dest.display()))?;
-    make_executable(dest)?;
-    Ok(())
+fn begin_install(state: &State) -> Task<Message> {
+    let components = Components {
+        tui: state.install_tui,
+        gui: state.install_gui,
+    };
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let handle = tokio::task::spawn_blocking(move || install_logic::run_install(components, tx));
+
+    let progress = Task::run(UnboundedReceiverStream::new(rx), Message::InstallProgress);
+    let finished = Task::perform(handle, |result| {
+        Message::InstallFinished(result.expect("install task panicked"))
+    });
+    Task::batch([progress, finished])
 }
-
-/// Where `ytb_dl_tui` itself expects to find the bundled interpreter and
-/// vendored yt-dlp source -- keep in sync with `resolve_ytdlp` in the main
-/// app's `src/ytdlp.rs`.
-fn runtime_dir(install_dir: &Path) -> PathBuf {
-    install_dir.join("python-runtime")
-}
-fn ytdlp_src_dir(install_dir: &Path) -> PathBuf {
-    install_dir.join("yt_dlp_src")
-}
-
-enum YtDlpStatus {
-    AlreadyInstalled,
-    Installed,
-}
-
-/// Installs the bundled Python interpreter (downloaded, unless a working
-/// copy from a previous run is already sitting there) and our vendored
-/// yt-dlp source (always re-extracted from what's embedded in this
-/// installer, so re-running always leaves you with exactly the version this
-/// installer shipped -- same reasoning as `install_app`).
-fn ensure_ytdlp(install_dir: &Path) -> Result<YtDlpStatus> {
-    let runtime_dir = runtime_dir(install_dir);
-    let python_path = python_runtime::python_exe_path(&runtime_dir);
-    let src_dir = ytdlp_src_dir(install_dir);
-
-    let already_installed = python_path.is_file() && verify_python(&python_path);
-
-    if !already_installed {
-        println!(
-            "   downloading Python {} (build {})",
-            python_runtime::PYTHON_VERSION,
-            python_runtime::RELEASE_TAG
-        );
-        let bytes = download::fetch(python_runtime::download_url())?;
-        extract::install_dir_from_archive(&bytes, python_runtime::download_url(), &runtime_dir)?;
-        make_executable(&python_path)?;
-        if !verify_python(&python_path) {
-            bail!(
-                "downloaded Python runtime to {} but it did not run correctly",
-                runtime_dir.display()
-            );
-        }
-    }
-
-    extract::install_embedded_zip(YTDLP_VENDOR_ZIP, &src_dir)
-        .with_context(|| format!("extracting vendored yt-dlp source to {}", src_dir.display()))?;
-
-    if !verify_ytdlp(&python_path, &src_dir) {
-        bail!("installed yt-dlp (via the bundled Python runtime) but it did not run correctly");
-    }
-
-    Ok(if already_installed {
-        YtDlpStatus::AlreadyInstalled
-    } else {
-        YtDlpStatus::Installed
-    })
-}
-
-fn verify_python(python_path: &Path) -> bool {
-    Command::new(python_path)
-        .arg("--version")
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
-}
-
-fn verify_ytdlp(python_path: &Path, src_dir: &Path) -> bool {
-    Command::new(python_path)
-        .env("PYTHONPATH", src_dir)
-        .args(["-m", "yt_dlp", "--version"])
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
-}
-
-enum Status {
-    AlreadyOnPath(PathBuf),
-    AlreadyInstalled(PathBuf),
-    Installed(PathBuf),
-}
-
-/// Installs ffmpeg *and* ffprobe from one download. yt-dlp is given
-/// ffmpeg's path via `--ffmpeg-location` and, from that, looks for ffprobe
-/// in the very same directory (see yt-dlp's `postprocessor/ffmpeg.py`) --
-/// so unlike `ensure_tool`'s other callers, cherry-picking just the one
-/// named executable out of the archive isn't enough here.
-fn ensure_ffmpeg(install_dir: &Path) -> Result<Status> {
-    let tool = Tool::Ffmpeg;
-    if let Ok(path) = which::which(tool.exe_stem())
-        && verify_runs(&path, tool)
-    {
-        return Ok(Status::AlreadyOnPath(path));
-    }
-
-    let dest = install_dir.join(tool.exe_filename());
-    let companion_dest = tool
-        .companion_exe_filename()
-        .map(|name| install_dir.join(name));
-    let companion_ok = companion_dest.as_deref().is_none_or(Path::is_file);
-    if dest.is_file() && companion_ok && verify_runs(&dest, tool) {
-        return Ok(Status::AlreadyInstalled(dest));
-    }
-
-    println!("   downloading {}", tool.download_url());
-    let bytes = download::fetch(tool.download_url())?;
-    let mut targets = vec![(tool.exe_filename(), dest.clone())];
-    if let Some(companion_dest) = &companion_dest {
-        targets.push((
-            tool.companion_exe_filename().unwrap(),
-            companion_dest.clone(),
-        ));
-    }
-    let targets_ref: Vec<(&str, &Path)> = targets
-        .iter()
-        .map(|(name, path)| (name.as_str(), path.as_path()))
-        .collect();
-    extract::install_many_from_archive(&bytes, tool.download_url(), &targets_ref)?;
-    make_executable(&dest)?;
-    if let Some(companion_dest) = &companion_dest {
-        make_executable(companion_dest)?;
-    }
-
-    if !verify_runs(&dest, tool) {
-        bail!(
-            "downloaded to {} but it did not run correctly",
-            dest.display()
-        );
-    }
-
-    Ok(Status::Installed(dest))
-}
-
-fn ensure_tool(tool: Tool, install_dir: &Path) -> Result<Status> {
-    if let Ok(path) = which::which(tool.exe_stem())
-        && verify_runs(&path, tool)
-    {
-        return Ok(Status::AlreadyOnPath(path));
-    }
-
-    let dest = install_dir.join(tool.exe_filename());
-    if dest.is_file() && verify_runs(&dest, tool) {
-        return Ok(Status::AlreadyInstalled(dest));
-    }
-
-    println!("   downloading {}", tool.download_url());
-    let bytes = download::fetch(tool.download_url())?;
-    extract::install_from_archive(&bytes, tool.download_url(), &tool.exe_filename(), &dest)?;
-    make_executable(&dest)?;
-
-    if !verify_runs(&dest, tool) {
-        bail!(
-            "downloaded to {} but it did not run correctly",
-            dest.display()
-        );
-    }
-
-    Ok(Status::Installed(dest))
-}
-
-fn verify_runs(path: &Path, tool: Tool) -> bool {
-    Command::new(path)
-        .args(tool.version_args())
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
-}
-
-#[cfg(unix)]
-fn make_executable(path: &Path) -> Result<()> {
-    use std::os::unix::fs::PermissionsExt;
-    let mut perms = std::fs::metadata(path)?.permissions();
-    perms.set_mode(perms.mode() | 0o755);
-    std::fs::set_permissions(path, perms)?;
-    Ok(())
-}
-
-#[cfg(windows)]
-fn make_executable(_path: &Path) -> Result<()> {
-    Ok(())
-}
-
-/// Windows: double-clicking closes the console the instant the process
-/// exits, so without this the user never gets to read the result.
-#[cfg(windows)]
-fn pause_before_exit() {
-    use std::io::Write;
-    println!("Press Enter to close this window...");
-    let _ = std::io::stdout().flush();
-    let mut buf = String::new();
-    let _ = std::io::stdin().read_line(&mut buf);
-}
-
-#[cfg(not(windows))]
-fn pause_before_exit() {}

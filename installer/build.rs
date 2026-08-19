@@ -16,7 +16,10 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 
 fn main() {
-    if let Err(e) = check_embedded_app_binary() {
+    if let Err(e) = check_embedded_app_binary("ytb_dl_tui", "YTB_DL_TUI_TUI_BINARY_PATH") {
+        panic!("\n\n{e:#}\n\n");
+    }
+    if let Err(e) = check_embedded_app_binary("ytb_dl_tui_gui", "YTB_DL_TUI_GUI_BINARY_PATH") {
         panic!("\n\n{e:#}\n\n");
     }
     if let Err(e) = zip_vendored_ytdlp() {
@@ -24,33 +27,40 @@ fn main() {
     }
 }
 
-fn check_embedded_app_binary() -> Result<()> {
+/// Makes sure a freshly built `{stem}` binary for the target platform is
+/// sitting in `embed/`, and exposes its path via `env_var` so `main.rs` can
+/// `include_bytes!` it. Called once for the TUI binary and once for the
+/// GUI binary -- the installer embeds both, regardless of which one(s) the
+/// user ends up choosing on the wizard's Components page, same as any
+/// installer that bundles optional components inside one package.
+fn check_embedded_app_binary(stem: &str, env_var: &str) -> Result<()> {
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
 
     let filename = if target_os == "windows" {
-        "ytb_dl_tui.exe"
+        format!("{stem}.exe")
     } else {
-        "ytb_dl_tui"
+        stem.to_string()
     };
-    let path = Path::new(&manifest_dir).join("embed").join(filename);
+    let path = Path::new(&manifest_dir).join("embed").join(&filename);
 
     if !path.is_file() {
         bail!(
             "missing {path}\n\n\
-             The installer embeds a real ytb_dl_tui binary at compile time.\n\
-             Build the main app for this same target first, e.g.:\n\
+             The installer embeds real {stem} binaries at compile time.\n\
+             Build the app/gui crates for this same target first, e.g.:\n\
              \n    cargo build --release --target <target-triple>\n\
              \n\
              ... then copy target/<target-triple>/release/{filename} to\n\
              installer/embed/{filename} before building the installer.\n\
-             (build-installer.sh at the repo root does both steps in order.)",
+             (build-installer.sh at the repo root does all of this in order.)",
             path = path.display(),
+            stem = stem,
             filename = filename,
         );
     }
 
-    println!("cargo:rustc-env=YTB_DL_TUI_BINARY_PATH={}", path.display());
+    println!("cargo:rustc-env={env_var}={}", path.display());
     println!("cargo:rerun-if-changed={}", path.display());
     Ok(())
 }
